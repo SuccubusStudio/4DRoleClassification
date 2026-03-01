@@ -3,50 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>4D 角色屬性矩陣 (Character Matrix)</title>
+    <title>4D 角色屬性矩陣 - YoRHa OS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #050505; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; padding: 2rem; }
+        /* NieR: Automata Color Palette & Styling */
+        :root {
+            --nier-bg: #dad7c5;
+            --nier-dark: #44423a;
+            --nier-light: #e8e5d5;
+            --nier-accent: #8b3434; /* 尼爾偶爾用的暗紅色，用於警告或強調 */
+        }
         
-        /* 滑鼠懸停的提示框 */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: var(--nier-bg); 
+            color: var(--nier-dark); 
+            font-family: 'Courier New', Courier, 'Segoe UI', Tahoma, monospace; 
+        }
+        
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        #ui-layer { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; 
+            padding: 2rem; 
+        }
+        
+        /* 尼爾風格的裝飾線 */
+        .nier-header-line {
+            border-bottom: 2px solid var(--nier-dark);
+            position: relative;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+        .nier-header-line::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--nier-dark);
+        }
+
+        /* 尼爾風格的提示框 */
         #tooltip {
             position: absolute;
-            background: rgba(15, 23, 42, 0.85);
-            border: 1px solid #38bdf8;
-            border-radius: 8px;
-            padding: 12px 16px;
-            color: #e0f2fe;
+            background: var(--nier-bg);
+            border: 2px solid var(--nier-dark);
+            color: var(--nier-dark);
             font-size: 14px;
             pointer-events: none;
             opacity: 0;
-            transition: opacity 0.2s;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 0 15px rgba(56, 189, 248, 0.3);
+            transition: opacity 0.1s;
             transform: translate(-50%, -120%);
-            backdrop-filter: blur(4px);
             white-space: nowrap;
             z-index: 100;
+            box-shadow: 4px 4px 0px rgba(68, 66, 58, 0.2);
+            padding: 0;
         }
 
-        /* 返回按鈕 (4D 模式用) */
+        .tooltip-header {
+            background-color: var(--nier-dark);
+            color: var(--nier-bg);
+            padding: 6px 12px;
+            font-weight: bold;
+            font-family: 'Courier New', Courier, monospace;
+            letter-spacing: 1px;
+        }
+
+        .tooltip-body {
+            padding: 8px 12px;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--nier-bg);
+        }
+
+        /* 尼爾風格按鈕 */
         #back-btn {
             pointer-events: auto;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
+            background-color: var(--nier-bg);
+            color: var(--nier-dark);
+            border: 2px solid var(--nier-dark);
+            transition: all 0.1s;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            letter-spacing: 2px;
+            box-shadow: 4px 4px 0px rgba(68, 66, 58, 0.2);
         }
         #back-btn:hover {
-            box-shadow: 0 0 30px rgba(6, 182, 212, 0.8);
-            transform: translate(-50%, -5px);
+            background-color: var(--nier-dark);
+            color: var(--nier-bg);
+            transform: translate(-50%, -2px);
+            box-shadow: 4px 6px 0px rgba(68, 66, 58, 0.4);
         }
         
         .axis-label {
             font-weight: bold;
             letter-spacing: 2px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        /* 掃描線效果 (增添系統感) */
+        .scanlines {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 3px 100%;
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0.6;
         }
     </style>
     
-    <!-- 引入 Three.js 與 OrbitControls (使用 Import Map) -->
     <script type="importmap">
         {
             "imports": {
@@ -58,35 +127,41 @@
 </head>
 <body>
 
+    <!-- 掃描線覆蓋層 -->
+    <div class="scanlines"></div>
+
     <!-- UI 覆蓋層 -->
     <div id="ui-layer">
         <div>
-            <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 mb-2">《Succubus Studio》角色屬性物理引擎 v2.0</h1>
-            <p class="text-gray-400 text-sm">拖拽旋轉視角 | 滾輪縮放 | 滑鼠懸停查看 | <span class="text-cyan-400 font-bold animate-pulse">點擊球體展開第四維度！</span></p>
+            <div class="nier-header-line">
+                <h1 class="text-3xl font-bold tracking-widest uppercase">SYSTEM: Character_Matrix</h1>
+            </div>
+            <p class="text-sm font-bold tracking-widest mt-2">» MODE: <span style="color: var(--nier-accent);" class="animate-pulse">SELECT_NODE_TO_EXPAND_4D</span></p>
             
-            <div class="mt-4 space-y-2 text-xs bg-gray-900/60 p-4 rounded-lg border border-gray-700 inline-block backdrop-blur-sm transition-opacity duration-300" id="legend-box">
-                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full" style="background-color: #ff66b2;"></div> 少女 (Y: 底層)</div>
-                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full" style="background-color: #ffb366;"></div> 少御 (Y: 中層)</div>
-                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full" style="background-color: #b266ff;"></div> 御姐 (Y: 頂層)</div>
+            <div class="mt-4 border-2 p-3 text-xs inline-block" style="border-color: var(--nier-dark); background-color: rgba(218, 215, 197, 0.8);" id="legend-box">
+                <div class="font-bold mb-2 uppercase tracking-widest pb-1 border-b" style="border-color: var(--nier-dark);">Y-Axis: Maturity Data</div>
+                <div class="flex items-center gap-3 mb-1"><div class="w-2 h-2" style="background-color: var(--nier-dark);"></div> 少女 (Base Level)</div>
+                <div class="flex items-center gap-3 mb-1"><div class="w-3 h-3" style="background-color: var(--nier-dark);"></div> 少御 (Mid Level)</div>
+                <div class="flex items-center gap-3"><div class="w-4 h-4" style="background-color: var(--nier-dark);"></div> 御姐 (Top Level)</div>
             </div>
         </div>
         
-        <div class="flex justify-between w-full text-xs font-mono text-gray-500 transition-opacity duration-300" id="axis-labels">
-            <div>X 軸 (紅): 個性 (元氣 <-> 高冷)</div>
-            <div>Y 軸 (綠): 成熟度 (少女 <-> 御姐)</div>
-            <div>Z 軸 (藍): 危險度 (安全 <-> 危險)</div>
+        <div class="flex justify-between w-full text-xs font-bold tracking-widest transition-opacity duration-300 uppercase" id="axis-labels">
+            <div>[X] Vibe: 元氣 ↔ 高冷</div>
+            <div>[Y] Maturity: 少女 ↔ 御姐</div>
+            <div>[Z] Danger: 安全 ↔ 危險</div>
         </div>
     </div>
 
     <!-- 退出 4D 模式按鈕 -->
-    <button id="back-btn" class="absolute bottom-10 left-1/2 transform -translate-x-1/2 bg-cyan-600 border border-cyan-400 text-white font-bold py-3 px-8 rounded-full opacity-0 pointer-events-none z-50 flex items-center gap-2">
-        <span>← 收回第四維度</span>
+    <button id="back-btn" class="absolute bottom-10 left-1/2 transform -translate-x-1/2 py-2 px-8 opacity-0 pointer-events-none z-50 flex items-center gap-2 uppercase">
+        <span>■ RETURN_TO_3D_GRID</span>
     </button>
 
     <!-- 滑鼠懸停提示 -->
     <div id="tooltip">
-        <div class="font-bold text-cyan-300 text-lg mb-1" id="tt-title">角色類型</div>
-        <div class="text-gray-300" id="tt-desc">描述</div>
+        <div class="tooltip-header" id="tt-title">NODE_NAME</div>
+        <div class="tooltip-body" id="tt-desc">DESCRIPTION_DATA</div>
     </div>
 
     <div id="canvas-container"></div>
@@ -95,15 +170,23 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+        // 尼爾主題色 (十六進位)
+        const NIER_BG = 0xdad7c5;
+        const NIER_DARK = 0x44423a;
+        const NIER_LIGHT = 0xe8e5d5;
+        const NIER_LINES = 0x8a8779;
+        const NIER_ACCENT = 0x8b3434;
+
         // 1. 初始化場景、相機、渲染器
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x050505, 0.02); 
+        scene.background = new THREE.Color(NIER_BG);
+        scene.fog = new THREE.FogExp2(NIER_BG, 0.025); // 迷霧顏色也改成底色，製造深度
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(15, 12, 20); 
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         container.appendChild(renderer.domElement);
@@ -113,28 +196,28 @@
         controls.dampingFactor = 0.05;
         controls.target.set(0, 3, 0); 
 
-        // 2. 燈光設置
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        // 2. 燈光設置 (改為平穩、去飽和的照明)
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         scene.add(ambientLight);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
 
-        const backLight = new THREE.DirectionalLight(0x4444ff, 0.8);
+        const backLight = new THREE.DirectionalLight(0xffffff, 0.3);
         backLight.position.set(-10, -10, -10);
         scene.add(backLight);
 
-        // 3. 定義維度數據
+        // 3. 定義維度數據 (移除顏色，純靠資料結構)
         const dimX = [
-            { id: -1, name: '元氣', colorMod: 0x22ff22 },
-            { id: 0, name: '從容', colorMod: 0xffffff },
-            { id: 1, name: '高冷', colorMod: 0x2222ff }
+            { id: -1, name: '元氣' },
+            { id: 0, name: '從容' },
+            { id: 1, name: '高冷' }
         ];
         const dimY = [
-            { id: 0, name: '少女', color: 0xff66b2, size: 0.4, desc: '青澀、靈動，受動的觀察者' },
-            { id: 1, name: '少御', color: 0xffb366, size: 0.5, desc: '幼態成熟，覺醒的跨越者' },
-            { id: 2, name: '御姐', color: 0xb266ff, size: 0.6, desc: '絕對掌控，自覺的掌控者' }
+            { id: 0, name: '少女', size: 0.4, desc: '青澀、靈動，受動的觀察者' },
+            { id: 1, name: '少御', size: 0.5, desc: '幼態成熟，覺醒的跨越者' },
+            { id: 2, name: '御姐', size: 0.6, desc: '絕對掌控，自覺的掌控者' }
         ];
         const dimZ = [
             { id: -1, name: '安全', descMod: '讓人想依賴的港灣' },
@@ -144,22 +227,22 @@
         
         // 第四維度 (W軸: 決策軸 - 感性 vs 理性)
         const dimW = [
-            { id: -1, name: '絕對感性', color: 0xff3366, descMod: '情感驅動，願意為了在乎的人事物打破所有規則。' },
-            { id: 0, name: '感性與理智', color: 0x33ffcc, descMod: '在情感與現實間取得完美的平衡，最穩定的人格。' },
-            { id: 1, name: '絕對理性', color: 0x3366ff, descMod: '冷酷精密，宛如機器般永遠計算著最優解。' }
+            { id: -1, name: '絕對感性', descMod: '情感驅動，願意為了在乎的人事物打破規則。' },
+            { id: 0, name: '感性與理智', descMod: '情感與現實間的完美平衡，穩定的人格。' },
+            { id: 1, name: '絕對理性', descMod: '冷酷精密，宛如機器般永遠計算著最優解。' }
         ];
 
-        const spacing = 4; // 節點間距
+        const spacing = 4;
         const nodeMeshes = [];
-        const gridLines = []; // 儲存線條以便控制透明度
+        const gridLines = []; 
         
-        // 用來集中管理主網格的群組
         const mainGridGroup = new THREE.Group();
         scene.add(mainGridGroup);
 
-        const sphereGeo = new THREE.SphereGeometry(1, 32, 32);
+        // 使用更幾何、扁平化的材質
+        const sphereGeo = new THREE.SphereGeometry(1, 16, 16); // 降低面數，增加工業感
         
-        // 4. 生成 3x3x3 節點 (化學結構的球)
+        // 4. 生成 3x3x3 節點
         dimX.forEach(x => {
             dimY.forEach(y => {
                 dimZ.forEach(z => {
@@ -167,14 +250,13 @@
                     const posY = y.id * spacing;
                     const posZ = z.id * spacing;
 
+                    // 尼爾風格的基礎節點材質 (帶灰的卡其色)
                     const material = new THREE.MeshStandardMaterial({ 
-                        color: y.color,
-                        metalness: 0.3,
-                        roughness: 0.2,
-                        emissive: y.color,
-                        emissiveIntensity: 0.2,
+                        color: 0xa8a493,
+                        metalness: 0.1,
+                        roughness: 0.9, // 霧面質感
                         transparent: true,
-                        opacity: 0.9
+                        opacity: 1.0
                     });
                     
                     const sphere = new THREE.Mesh(sphereGeo, material);
@@ -182,15 +264,22 @@
                     sphere.position.set(posX, posY, posZ);
                     
                     const charName = `${z.name}的 ${x.name} ${y.name}`;
-                    const charDesc = `【${y.name}】${y.desc}<br>【特質】${z.descMod}<br><span class="text-cyan-400 text-xs mt-1 block">▶ 點擊展開內心維度</span>`;
+                    const charDesc = `
+                        <div style="font-family:'Courier New'; font-size:12px; border-bottom:1px solid #44423a; margin-bottom:4px; padding-bottom:2px;">[TYPE] ${y.name}</div>
+                        ${y.desc}<br><br>
+                        <div style="font-family:'Courier New'; font-size:12px; border-bottom:1px solid #44423a; margin-bottom:4px; padding-bottom:2px;">[ATTRIBUTE]</div>
+                        ${z.descMod}<br>
+                        <span style="color: #8b3434; font-size: 11px; font-weight:bold; display:block; margin-top:8px;">▶ CLICK TO EXPAND W-AXIS</span>
+                    `;
                     
                     sphere.userData = {
                         name: charName,
-                        baseName: charName, // 乾淨的名字，供 4D 組合使用
+                        baseName: charName,
                         desc: charDesc,
                         ix: x.id, iy: y.id, iz: z.id,
                         originalScale: y.size,
-                        originalEmissive: y.color
+                        originalColor: 0xa8a493, // 預設顏色
+                        hoverColor: NIER_DARK     // 滑鼠懸停顏色 (深灰黑)
                     };
 
                     mainGridGroup.add(sphere);
@@ -200,7 +289,7 @@
         });
 
         // 5. 生成連結線
-        const lineMaterial = new THREE.LineBasicMaterial({ color: 0x445566, transparent: true, opacity: 0.5 });
+        const lineMaterial = new THREE.LineBasicMaterial({ color: NIER_LINES, transparent: true, opacity: 0.4 });
         for (let i = 0; i < nodeMeshes.length; i++) {
             for (let j = i + 1; j < nodeMeshes.length; j++) {
                 const n1 = nodeMeshes[i].userData;
@@ -216,59 +305,63 @@
             }
         }
 
-        // 6. 添加座標軸指示器
+        // 6. 添加座標軸指示器 (顏色改為尼爾灰)
         const axesHelper = new THREE.AxesHelper(10);
+        axesHelper.setColors(new THREE.Color(NIER_DARK), new THREE.Color(NIER_DARK), new THREE.Color(NIER_DARK));
         mainGridGroup.add(axesHelper);
 
         // ==========================================
-        // 7. 第四維度 (4D) 互動邏輯
+        // 7. 第四維度 (4D) 互動邏輯 & 相機平滑過渡
         // ==========================================
         let is4DMode = false;
         let activeCenterMesh = null;
         let active4DGroup = null;
-        let targetGridOpacity = 0.9;
-        let currentGridOpacity = 0.9;
+        let targetGridOpacity = 1.0;
+        let currentGridOpacity = 1.0;
         let active4DNodes = [];
+
+        // 相機過渡狀態變數
+        let isCameraTransitioning = false;
+        let cameraTargetStart = new THREE.Vector3();
+        let cameraTargetEnd = new THREE.Vector3();
+        let cameraPosStart = new THREE.Vector3();
+        let cameraPosEnd = new THREE.Vector3();
+        let transitionProgress = 0;
+        const transitionSpeed = 0.05; // 調整這個數值可以改變過渡快慢
 
         const backBtn = document.getElementById('back-btn');
         const legendBox = document.getElementById('legend-box');
         const axisLabels = document.getElementById('axis-labels');
 
-        // 展開第四維度
         function enter4DMode(baseMesh) {
             is4DMode = true;
             activeCenterMesh = baseMesh;
-            targetGridOpacity = 0.35; // 讓主網格稍微變暗就好 (原本是 0.05，調亮以保留空間感)
+            targetGridOpacity = 0.15; 
             
-            // 更新 UI
             backBtn.classList.remove('opacity-0', 'pointer-events-none');
             legendBox.style.opacity = '0';
             axisLabels.style.opacity = '0';
 
-            // 創建 4D 群組
             active4DGroup = new THREE.Group();
-            active4DGroup.position.copy(baseMesh.position); // 以點擊的球為中心
+            active4DGroup.position.copy(baseMesh.position); 
             scene.add(active4DGroup);
 
-            // 4D 軸的方向 (我們讓它斜向衝出來)
             const dir = new THREE.Vector3(1, 0.5, 1).normalize();
-            const wSpacing = 4; // W軸節點間距
+            const wSpacing = 4; 
             
-            // 創建發光的光軸 (Cylinder)
-            const tubeGeo = new THREE.CylinderGeometry(0.05, 0.05, wSpacing * 2, 8);
-            tubeGeo.translate(0, wSpacing, 0); // 調整中心點
-            const tubeMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending });
+            // 4D 光軸 (深色虛線感)
+            const tubeGeo = new THREE.CylinderGeometry(0.03, 0.03, wSpacing * 2, 8);
+            tubeGeo.translate(0, wSpacing, 0); 
+            const tubeMat = new THREE.MeshBasicMaterial({ color: NIER_DARK, transparent: true, opacity: 0.6 });
             const tube = new THREE.Mesh(tubeGeo, tubeMat);
             
-            // 讓圓柱體對齊方向向量
             const quaternion = new THREE.Quaternion();
             quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
             tube.setRotationFromQuaternion(quaternion);
-            // 將圓柱體移到起始點
             tube.position.copy(dir.clone().multiplyScalar(-wSpacing));
             active4DGroup.add(tube);
 
-            // 創建 4D 節點 (用菱形/八面體來區別)
+            // 4D 節點
             const octaGeo = new THREE.OctahedronGeometry(0.8, 0);
             active4DNodes = [];
 
@@ -276,24 +369,22 @@
                 const pos = dir.clone().multiplyScalar(w.id * wSpacing);
                 
                 const wMat = new THREE.MeshStandardMaterial({
-                    color: w.color,
-                    metalness: 0.5,
-                    roughness: 0.1,
-                    emissive: w.color,
-                    emissiveIntensity: 0.8,
+                    color: NIER_LIGHT,
+                    metalness: 0.0,
+                    roughness: 1.0,
                     transparent: true,
-                    opacity: 0.9
+                    opacity: 1.0
                 });
                 
                 const wNode = new THREE.Mesh(octaGeo, wMat);
                 wNode.position.copy(pos);
                 
-                // 組合 4D 名字 (例如: 【絕對感性】的 危險的 元氣 御姐)
                 wNode.userData = {
-                    name: `<span style="color:#${w.color.toString(16).padStart(6, '0')}">【${w.name}】</span>的<br>${baseMesh.userData.baseName}`,
-                    desc: `<span class="text-cyan-300">W軸：決策維度</span><br>${w.descMod}`,
+                    name: `[W_AXIS: ${w.name}]<br>→ ${baseMesh.userData.baseName}`,
+                    desc: `<div style="font-family:'Courier New'; font-size:12px; border-bottom:1px solid #44423a; margin-bottom:4px; padding-bottom:2px;">[LOGIC DATA]</div>${w.descMod}`,
                     originalScale: 1.0,
-                    originalEmissive: w.color,
+                    originalColor: NIER_LIGHT,
+                    hoverColor: 0xffffff, 
                     is4DNode: true
                 };
                 
@@ -301,18 +392,34 @@
                 active4DNodes.push(wNode);
             });
 
-            // 動畫初始縮放為 0，營造「噗～」射出來的感覺
             active4DGroup.scale.set(0.001, 0.001, 0.001);
+
+            // -- 設定相機平滑過渡目標 --
+            isCameraTransitioning = true;
+            transitionProgress = 0;
             
-            // 將相機稍微拉近對焦
-            controls.target.copy(baseMesh.position);
+            // 記錄起始狀態
+            cameraTargetStart.copy(controls.target);
+            cameraPosStart.copy(camera.position);
+
+            // 設定結束狀態 (焦點看向點擊的球)
+            cameraTargetEnd.copy(baseMesh.position);
+            
+            // 讓相機稍微靠近一點，營造聚焦感 (這裡計算一個新位置)
+            // 取從中心到相機的方向向量
+            const camDir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+            // 距離設為原來的一半左右，或是固定距離
+            const focusDistance = 15; 
+            cameraPosEnd.copy(baseMesh.position).add(camDir.multiplyScalar(focusDistance));
+            
+            // 停用 controls 的阻尼效果，避免跟我們的動畫衝突
+            controls.enableDamping = false;
         }
 
-        // 退出第四維度
         function exit4DMode() {
             is4DMode = false;
             activeCenterMesh = null;
-            targetGridOpacity = 0.9;
+            targetGridOpacity = 1.0;
             
             backBtn.classList.add('opacity-0', 'pointer-events-none');
             legendBox.style.opacity = '1';
@@ -324,8 +431,24 @@
                 active4DNodes = [];
             }
             
-            // 恢復相機中心點
-            controls.target.set(0, 3, 0);
+            // -- 設定相機平滑過渡目標 (回到預設全景) --
+            isCameraTransitioning = true;
+            transitionProgress = 0;
+            
+            cameraTargetStart.copy(controls.target);
+            cameraPosStart.copy(camera.position);
+            
+            cameraTargetEnd.set(0, 3, 0); // 預設中心
+            
+            // 稍微拉遠回到原始視角 (大約 15, 12, 20 的距離感)
+            const camDir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+            const overviewDistance = 28; // 原始距離大約是 28
+            cameraPosEnd.copy(new THREE.Vector3(0,3,0)).add(camDir.multiplyScalar(overviewDistance));
+
+            // 如果原本高度太低，稍微抬高一點
+            if(cameraPosEnd.y < 5) cameraPosEnd.y = 12;
+
+            controls.enableDamping = false;
             
             if (hoveredMesh) {
                 tooltip.style.opacity = 0;
@@ -352,12 +475,10 @@
             tooltip.style.top = event.clientY + 'px';
         });
 
-        // 點擊事件
         window.addEventListener('click', (event) => {
-            // 如果點擊到按鈕，不觸發 3D 點擊
             if(event.target.closest('#back-btn')) return;
-
-            if (!is4DMode && hoveredMesh) {
+            // 確保在過渡動畫中不能點擊新的球
+            if (!is4DMode && hoveredMesh && !isCameraTransitioning) {
                 enter4DMode(hoveredMesh);
             }
         });
@@ -373,81 +494,101 @@
         // ==========================================
         function animate() {
             requestAnimationFrame(animate);
-            controls.update();
 
-            // 處理時空凝結 (暗化動畫)
+            // 處理相機平滑過渡
+            if (isCameraTransitioning) {
+                transitionProgress += transitionSpeed;
+                
+                // 使用 smoothstep 讓動畫有 ease-in-out 的感覺
+                const t = Math.min(1.0, transitionProgress);
+                const easeT = t * t * (3 - 2 * t);
+
+                controls.target.lerpVectors(cameraTargetStart, cameraTargetEnd, easeT);
+                camera.position.lerpVectors(cameraPosStart, cameraPosEnd, easeT);
+
+                if (transitionProgress >= 1.0) {
+                    isCameraTransitioning = false;
+                    controls.enableDamping = true; // 恢復阻尼
+                }
+            }
+            controls.update(); // 必須放在 lerp 之後
+
+            // 處理透明度動畫 (利用 opacity 融入背景色)
             currentGridOpacity += (targetGridOpacity - currentGridOpacity) * 0.1;
             
             nodeMeshes.forEach(mesh => {
                 if (mesh !== activeCenterMesh) {
                     mesh.material.opacity = currentGridOpacity;
-                    mesh.material.emissiveIntensity = currentGridOpacity * 0.2;
                 } else if (is4DMode) {
-                    // 中心球體在 4D 模式下保持高亮
-                    mesh.material.opacity = 0.9;
-                    mesh.material.emissiveIntensity = 0.5;
+                    mesh.material.opacity = 1.0;
+                    mesh.material.color.setHex(NIER_DARK); // 中心點保持深色高對比
                 }
             });
             
             gridLines.forEach(line => {
-                line.material.opacity = currentGridOpacity * 0.5;
+                line.material.opacity = currentGridOpacity * 0.4;
             });
             axesHelper.material.opacity = currentGridOpacity;
             axesHelper.transparent = true;
 
-            // 4D 軸射出動畫 (Scale lerp)
             if (is4DMode && active4DGroup) {
                 active4DGroup.scale.lerp(new THREE.Vector3(1, 1, 1), 0.15);
-                
-                // 讓 4D 菱形稍微旋轉，增加神祕感
                 active4DNodes.forEach(node => {
-                    node.rotation.y += 0.02;
-                    node.rotation.z += 0.01;
+                    node.rotation.y += 0.01;
+                    node.rotation.z += 0.005;
                 });
             }
 
-            // 處理光線投射 (滑鼠懸停效果)
-            raycaster.setFromCamera(mouse, camera);
-            
-            // 決定射線要檢測的對象 (4D 模式下只檢測 4D 節點和中心點，普通模式檢測主網格)
-            const intersectTargets = is4DMode ? [...active4DNodes, activeCenterMesh] : nodeMeshes;
-            const intersects = raycaster.intersectObjects(intersectTargets);
+            // 在相機移動時，暫停射線檢測，避免 tooltip 亂閃
+            if (!isCameraTransitioning) {
+                raycaster.setFromCamera(mouse, camera);
+                const intersectTargets = is4DMode ? [...active4DNodes, activeCenterMesh] : nodeMeshes;
+                const intersects = raycaster.intersectObjects(intersectTargets);
 
-            if (intersects.length > 0) {
-                const object = intersects[0].object;
-                
-                if (hoveredMesh !== object) {
-                    // 恢復之前的節點
+                if (intersects.length > 0) {
+                    const object = intersects[0].object;
+                    
+                    if (hoveredMesh !== object) {
+                        if (hoveredMesh) {
+                            hoveredMesh.scale.setScalar(hoveredMesh.userData.originalScale);
+                            if (!is4DMode || hoveredMesh.userData.is4DNode) {
+                                hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
+                            }
+                        }
+                        
+                        hoveredMesh = object;
+                        hoveredMesh.scale.setScalar(hoveredMesh.userData.originalScale * 1.3); // 縮放幅度小一點比較符合冷靜的UI
+                        hoveredMesh.material.color.setHex(hoveredMesh.userData.hoverColor);
+                        
+                        ttTitle.innerHTML = hoveredMesh.userData.name;
+                        ttDesc.innerHTML = hoveredMesh.userData.desc;
+                        tooltip.style.opacity = 1;
+                        
+                        // 特殊處理 4D 節點的 tooltip 樣式反轉
+                        if (hoveredMesh.userData.is4DNode) {
+                            ttTitle.style.backgroundColor = '#e8e5d5';
+                            ttTitle.style.color = '#44423a';
+                        } else {
+                            ttTitle.style.backgroundColor = '#44423a';
+                            ttTitle.style.color = '#dad7c5';
+                        }
+                    }
+                } else {
                     if (hoveredMesh) {
                         hoveredMesh.scale.setScalar(hoveredMesh.userData.originalScale);
                         if (!is4DMode || hoveredMesh.userData.is4DNode) {
-                            hoveredMesh.material.emissiveIntensity = hoveredMesh.userData.is4DNode ? 0.8 : 0.2;
+                            hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
+                        } else if (hoveredMesh === activeCenterMesh && is4DMode) {
+                            hoveredMesh.material.color.setHex(NIER_DARK); 
                         }
+                        
+                        hoveredMesh = null;
+                        tooltip.style.opacity = 0;
                     }
-                    
-                    // 放大並高亮當前節點
-                    hoveredMesh = object;
-                    hoveredMesh.scale.setScalar(hoveredMesh.userData.originalScale * 1.5);
-                    hoveredMesh.material.emissiveIntensity = hoveredMesh.userData.is4DNode ? 2.0 : 0.8;
-                    
-                    // 更新 UI
-                    ttTitle.innerHTML = hoveredMesh.userData.name;
-                    ttDesc.innerHTML = hoveredMesh.userData.desc;
-                    tooltip.style.opacity = 1;
-                    tooltip.style.borderColor = '#' + hoveredMesh.userData.originalEmissive.toString(16).padStart(6, '0');
                 }
             } else {
-                if (hoveredMesh) {
-                    hoveredMesh.scale.setScalar(hoveredMesh.userData.originalScale);
-                    if (!is4DMode || hoveredMesh.userData.is4DNode) {
-                        hoveredMesh.material.emissiveIntensity = hoveredMesh.userData.is4DNode ? 0.8 : 0.2;
-                    } else if (hoveredMesh === activeCenterMesh && is4DMode) {
-                        hoveredMesh.material.emissiveIntensity = 0.5; // 中心點在 4D 模式下維持一定亮度
-                    }
-                    
-                    hoveredMesh = null;
-                    tooltip.style.opacity = 0;
-                }
+                // 如果正在移動，隱藏 tooltip
+                tooltip.style.opacity = 0;
             }
 
             renderer.render(scene, camera);
