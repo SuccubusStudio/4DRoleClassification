@@ -11,7 +11,7 @@
             --nier-bg: #dad7c5;
             --nier-dark: #44423a;
             --nier-light: #e8e5d5;
-            --nier-accent: #8b3434; /* 尼爾偶爾用的暗紅色，用於警告或強調 */
+            --nier-accent: #8b3434;
         }
         
         body { 
@@ -30,7 +30,6 @@
             padding: 2rem; 
         }
         
-        /* 尼爾風格的裝飾線 */
         .nier-header-line {
             border-bottom: 2px solid var(--nier-dark);
             position: relative;
@@ -47,7 +46,33 @@
             background-color: var(--nier-dark);
         }
 
-        /* 尼爾風格的提示框 */
+        #target-bracket {
+            position: absolute;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            opacity: 0;
+            transition: opacity 0.2s, width 0.1s, height 0.1s;
+            z-index: 90;
+        }
+        #target-bracket::before, #target-bracket::after {
+            content: '';
+            position: absolute;
+            top: 0; bottom: 0;
+            width: 12px;
+            border: 2px solid var(--nier-dark);
+        }
+        #target-bracket::before {
+            left: 0;
+            border-right: none;
+        }
+        #target-bracket::after {
+            right: 0;
+            border-left: none;
+        }
+
+        /* 左側動態資料卡 (含頭像) */
         #tooltip {
             position: absolute;
             background: var(--nier-bg);
@@ -56,12 +81,24 @@
             font-size: 14px;
             pointer-events: none;
             opacity: 0;
-            transition: opacity 0.1s;
-            transform: translate(-50%, -120%);
-            white-space: nowrap;
+            transition: opacity 0.2s;
+            transform: translate(calc(-100% - 45px), -50%); 
             z-index: 100;
             box-shadow: 4px 4px 0px rgba(68, 66, 58, 0.2);
             padding: 0;
+            width: max-content;
+            max-width: 350px; /* 限制寬度讓文字可以折行 */
+        }
+
+        #tooltip::before {
+            content: '';
+            position: absolute;
+            right: -47px; 
+            top: 50%;
+            width: 45px;
+            height: 2px;
+            background-color: var(--nier-dark);
+            transform: translateY(-50%);
         }
 
         .tooltip-header {
@@ -71,6 +108,7 @@
             font-weight: bold;
             font-family: 'Courier New', Courier, monospace;
             letter-spacing: 1px;
+            white-space: nowrap;
         }
 
         .tooltip-body {
@@ -79,7 +117,38 @@
             background-color: var(--nier-bg);
         }
 
-        /* 尼爾風格按鈕 */
+        /* 右側核心資料卡 (含大立繪) */
+        #info-card {
+            position: absolute;
+            right: 40px;
+            top: 50%;
+            transform: translateY(-50%) translateX(30px);
+            width: 320px;
+            background: rgba(218, 215, 197, 0.95);
+            border: 2px solid var(--nier-dark);
+            color: var(--nier-dark);
+            padding: 16px;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            box-shadow: 6px 6px 0px rgba(68, 66, 58, 0.2);
+            z-index: 100;
+        }
+        #info-card.active {
+            opacity: 1;
+            transform: translateY(-50%) translateX(0);
+        }
+        #info-card::before {
+            content: '>';
+            position: absolute;
+            left: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--nier-dark);
+            font-weight: bold;
+            font-size: 20px;
+        }
+
         #back-btn {
             pointer-events: auto;
             background-color: var(--nier-bg);
@@ -104,7 +173,6 @@
             font-family: 'Courier New', Courier, monospace;
         }
 
-        /* 掃描線效果 (增添系統感) */
         .scanlines {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -114,8 +182,22 @@
             pointer-events: none;
             opacity: 0.6;
         }
+
+        /* 圖片容器共用掃描線效果 */
+        .img-scanline-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
     </style>
     
+    <script>
+        // 預設的 ??? 錯誤替代圖片 (Base64 SVG)，完全符合尼爾風格
+        window.fallbackSVG = "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23e8e5d5'/%3E%3Ctext x='100' y='105' font-family='monospace' font-size='40' font-weight='bold' fill='%2344423a' text-anchor='middle' dominant-baseline='middle'%3E???%3C/text%3E%3C/svg%3E";
+    </script>
+
     <script type="importmap">
         {
             "imports": {
@@ -127,16 +209,14 @@
 </head>
 <body>
 
-    <!-- 掃描線覆蓋層 -->
     <div class="scanlines"></div>
 
-    <!-- UI 覆蓋層 -->
     <div id="ui-layer">
         <div>
             <div class="nier-header-line">
                 <h1 class="text-3xl font-bold tracking-widest uppercase">SYSTEM: Character_Matrix</h1>
             </div>
-            <p class="text-sm font-bold tracking-widest mt-2">» MODE: <span style="color: var(--nier-accent);" class="animate-pulse">SELECT_NODE_TO_EXPAND_4D</span></p>
+            <p class="text-sm font-bold tracking-widest mt-2">» MODE: <span style="color: var(--nier-accent);" class="animate-pulse">AUTO_TARGET_STANDBY</span></p>
             
             <div class="mt-4 border-2 p-3 text-xs inline-block" style="border-color: var(--nier-dark); background-color: rgba(218, 215, 197, 0.8);" id="legend-box">
                 <div class="font-bold mb-2 uppercase tracking-widest pb-1 border-b" style="border-color: var(--nier-dark);">Y-Axis: Maturity Data</div>
@@ -149,19 +229,48 @@
         <div class="flex justify-between w-full text-xs font-bold tracking-widest transition-opacity duration-300 uppercase" id="axis-labels">
             <div>[X] Vibe: 元氣 ↔ 高冷</div>
             <div>[Y] Maturity: 少女 ↔ 御姐</div>
-            <div>[Z] Danger: 安全 ↔ 危險</div>
+            <div>[Z] Order: 守序 ↔ 混亂</div>
         </div>
     </div>
 
-    <!-- 退出 4D 模式按鈕 -->
     <button id="back-btn" class="absolute bottom-10 left-1/2 transform -translate-x-1/2 py-2 px-8 opacity-0 pointer-events-none z-50 flex items-center gap-2 uppercase">
-        <span>■ RETURN_TO_3D_GRID</span>
+        <span>■ RETURN_TO_3D_GRID [SPACE]</span>
     </button>
 
-    <!-- 滑鼠懸停提示 -->
+    <div id="target-bracket"></div>
+
+    <!-- 左側：自動浮出的追蹤資料卡 (加入頭像) -->
     <div id="tooltip">
         <div class="tooltip-header" id="tt-title">NODE_NAME</div>
-        <div class="tooltip-body" id="tt-desc">DESCRIPTION_DATA</div>
+        <div class="tooltip-body flex gap-3">
+            <!-- 加上 transition 讓大小變化更滑順 -->
+            <div id="tt-img-container" class="w-16 h-16 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden transition-all duration-200">
+                <img id="tt-img" src="" class="w-full h-full object-cover" />
+                <div class="img-scanline-overlay"></div>
+            </div>
+            <div id="tt-desc" class="flex-1 whitespace-normal">DESCRIPTION_DATA</div>
+        </div>
+    </div>
+
+    <!-- 右側：4D模式側邊固定資料卡 (縮小暫存立繪) -->
+    <div id="info-card">
+        <div class="font-bold mb-3 uppercase tracking-widest pb-1 border-b" style="border-color: var(--nier-dark); font-family: 'Courier New', Courier, monospace;">
+            » CORE_NODE_DATA
+        </div>
+        
+        <!-- 大頭貼立繪區塊 (改為縮小的暫存預覽) -->
+        <div class="mb-3 flex gap-4 items-center">
+            <div class="w-20 h-20 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden">
+                <img id="info-card-img" src="" class="w-full h-full object-cover" />
+                <div class="img-scanline-overlay"></div>
+            </div>
+            <div>
+                <div class="text-xs text-gray-500 mb-1 font-bold">» BASE_STATE</div>
+                <div id="info-card-title" class="text-[15px] font-bold" style="color: var(--nier-accent); line-height: 1.2;"></div>
+            </div>
+        </div>
+
+        <div id="info-card-content" class="text-sm font-sans pt-2 border-t border-[var(--nier-dark)] border-dashed"></div>
     </div>
 
     <div id="canvas-container"></div>
@@ -170,18 +279,31 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        // 尼爾主題色 (十六進位)
+        // ==========================================
+        // 📖 吉祥島 / YoRHa 專屬角色資料庫
+        // ==========================================
+        const characterDB = {
+            "守序的元氣少女": "總是充滿活力且循規蹈矩的新手冒險者。",
+            "守序的高冷御姐": "一絲不苟的執行官，不苟言笑。",
+            "隨性的從容少御": "隨波逐流的旅行者，擁有超越外表的成熟。",
+            "混亂的高冷少女": "不聽任何人指揮的叛逆少女，極度自我中心。",
+            
+            "邪惡且混亂的從容少女": "她會笑著看你的世界燃燒，純粹為了好玩。",
+            "正義且守序的高冷御姐": "絕對的鐵腕正義，為了大局可以犧牲少數人。",
+            "中立且隨性的元氣少御": "充滿活力的普通市民，最關心今天的晚餐吃什麼。",
+            "正義且守序的元氣少女": "典型的熱血勇者，相信愛與友情能戰勝一切。"
+        };
+
         const NIER_BG = 0xdad7c5;
         const NIER_DARK = 0x44423a;
         const NIER_LIGHT = 0xe8e5d5;
         const NIER_LINES = 0x8a8779;
         const NIER_ACCENT = 0x8b3434;
 
-        // 1. 初始化場景、相機、渲染器
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(NIER_BG);
-        scene.fog = new THREE.FogExp2(NIER_BG, 0.025); // 迷霧顏色也改成底色，製造深度
+        scene.fog = new THREE.FogExp2(NIER_BG, 0.025);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(15, 12, 20); 
@@ -196,7 +318,6 @@
         controls.dampingFactor = 0.05;
         controls.target.set(0, 3, 0); 
 
-        // 2. 燈光設置 (改為平穩、去飽和的照明)
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         scene.add(ambientLight);
 
@@ -208,28 +329,23 @@
         backLight.position.set(-10, -10, -10);
         scene.add(backLight);
 
-        // 3. 定義維度數據 (移除顏色，純靠資料結構)
         const dimX = [
-            { id: -1, name: '元氣' },
-            { id: 0, name: '從容' },
-            { id: 1, name: '高冷' }
+            { id: -1, name: '元氣' }, { id: 0, name: '從容' }, { id: 1, name: '高冷' }
         ];
         const dimY = [
-            { id: 0, name: '少女', size: 0.4, desc: '青澀、靈動，受動的觀察者' },
-            { id: 1, name: '少御', size: 0.5, desc: '幼態成熟，覺醒的跨越者' },
-            { id: 2, name: '御姐', size: 0.6, desc: '絕對掌控，自覺的掌控者' }
+            { id: 0, name: '少女', size: 0.4 },
+            { id: 1, name: '少御', size: 0.5 },
+            { id: 2, name: '御姐', size: 0.6 }
         ];
         const dimZ = [
-            { id: -1, name: '安全', descMod: '讓人想依賴的港灣' },
-            { id: 0, name: '中立', descMod: '標準的性格展現' },
-            { id: 1, name: '危險', descMod: '帶有侵略性或致命吸引力' }
+            { id: -1, name: '守序' },
+            { id: 0, name: '隨性' },
+            { id: 1, name: '混亂' }
         ];
-        
-        // 第四維度 (W軸: 決策軸 - 感性 vs 理性)
         const dimW = [
-            { id: -1, name: '絕對感性', descMod: '情感驅動，願意為了在乎的人事物打破規則。' },
-            { id: 0, name: '感性與理智', descMod: '情感與現實間的完美平衡，穩定的人格。' },
-            { id: 1, name: '絕對理性', descMod: '冷酷精密，宛如機器般永遠計算著最優解。' }
+            { id: 1, name: '正義' },
+            { id: 2, name: '中立' },
+            { id: 3, name: '邪惡' }
         ];
 
         const spacing = 4;
@@ -239,10 +355,9 @@
         const mainGridGroup = new THREE.Group();
         scene.add(mainGridGroup);
 
-        // 使用更幾何、扁平化的材質
-        const sphereGeo = new THREE.SphereGeometry(1, 16, 16); // 降低面數，增加工業感
+        const sphereGeo = new THREE.SphereGeometry(1, 16, 16); 
         
-        // 4. 生成 3x3x3 節點
+        // 建立 3D 基礎節點
         dimX.forEach(x => {
             dimY.forEach(y => {
                 dimZ.forEach(z => {
@@ -250,36 +365,42 @@
                     const posY = y.id * spacing;
                     const posZ = z.id * spacing;
 
-                    // 尼爾風格的基礎節點材質 (帶灰的卡其色)
                     const material = new THREE.MeshStandardMaterial({ 
-                        color: 0xa8a493,
-                        metalness: 0.1,
-                        roughness: 0.9, // 霧面質感
-                        transparent: true,
-                        opacity: 1.0
+                        color: 0xa8a493, metalness: 0.1, roughness: 0.9, transparent: true, opacity: 1.0
                     });
                     
                     const sphere = new THREE.Mesh(sphereGeo, material);
                     sphere.scale.setScalar(y.size); 
                     sphere.position.set(posX, posY, posZ);
                     
-                    const charName = `${z.name}的 ${x.name} ${y.name}`;
+                    const dataKey = `${z.name}的${x.name}${y.name}`;
+                    const customDesc = characterDB[dataKey] || "???";
+
+                    // 【核心邏輯】3D 模式的隨機 W 軸頭像配置
+                    // 在創建時為這顆球隨機抽一個 W (正義/中立/邪惡)，當作 3D 預覽時的代表頭像
+                    const randomW = dimW[Math.floor(Math.random() * dimW.length)].name;
+                    // 組裝檔名公式: [W][Z][X][Y].webp
+                    const imageFilename = `${randomW}${z.name}${x.name}${y.name}.webp`;
+
+                    const charName = dataKey; 
+                    const wHintTag = `<span class="w-hint" style="color: #8b3434; font-size: 11px; font-weight:bold; display:block; margin-top:8px;">▶ CLICK TO EXPAND W-AXIS</span>`;
+                    
                     const charDesc = `
-                        <div style="font-family:'Courier New'; font-size:12px; border-bottom:1px solid #44423a; margin-bottom:4px; padding-bottom:2px;">[TYPE] ${y.name}</div>
-                        ${y.desc}<br><br>
-                        <div style="font-family:'Courier New'; font-size:12px; border-bottom:1px solid #44423a; margin-bottom:4px; padding-bottom:2px;">[ATTRIBUTE]</div>
-                        ${z.descMod}<br>
-                        <span style="color: #8b3434; font-size: 11px; font-weight:bold; display:block; margin-top:8px;">▶ CLICK TO EXPAND W-AXIS</span>
+                        <div style="font-family:'Courier New'; font-size:12px; border-bottom:1px solid #44423a; margin-bottom:4px; padding-bottom:2px;">[ DATA_KEY: ${dataKey} ]</div>
+                        <div style="line-height: 1.5; margin-top: 6px;">${customDesc}</div>
+                        ${wHintTag}
                     `;
                     
                     sphere.userData = {
-                        name: charName,
-                        baseName: charName,
+                        name: charName, 
+                        baseName: charName, 
                         desc: charDesc,
+                        imageFilename: imageFilename, // 儲存專屬檔名
+                        xName: x.name, 
+                        yName: y.name,
+                        zName: z.name,
                         ix: x.id, iy: y.id, iz: z.id,
-                        originalScale: y.size,
-                        originalColor: 0xa8a493, // 預設顏色
-                        hoverColor: NIER_DARK     // 滑鼠懸停顏色 (深灰黑)
+                        originalScale: y.size, originalColor: 0xa8a493, hoverColor: NIER_DARK
                     };
 
                     mainGridGroup.add(sphere);
@@ -288,7 +409,6 @@
             });
         });
 
-        // 5. 生成連結線
         const lineMaterial = new THREE.LineBasicMaterial({ color: NIER_LINES, transparent: true, opacity: 0.4 });
         for (let i = 0; i < nodeMeshes.length; i++) {
             for (let j = i + 1; j < nodeMeshes.length; j++) {
@@ -305,14 +425,10 @@
             }
         }
 
-        // 6. 添加座標軸指示器 (顏色改為尼爾灰)
         const axesHelper = new THREE.AxesHelper(10);
         axesHelper.setColors(new THREE.Color(NIER_DARK), new THREE.Color(NIER_DARK), new THREE.Color(NIER_DARK));
         mainGridGroup.add(axesHelper);
 
-        // ==========================================
-        // 7. 第四維度 (4D) 互動邏輯 & 相機平滑過渡
-        // ==========================================
         let is4DMode = false;
         let activeCenterMesh = null;
         let active4DGroup = null;
@@ -320,18 +436,24 @@
         let currentGridOpacity = 1.0;
         let active4DNodes = [];
 
-        // 相機過渡狀態變數
         let isCameraTransitioning = false;
         let cameraTargetStart = new THREE.Vector3();
         let cameraTargetEnd = new THREE.Vector3();
         let cameraPosStart = new THREE.Vector3();
         let cameraPosEnd = new THREE.Vector3();
         let transitionProgress = 0;
-        const transitionSpeed = 0.05; // 調整這個數值可以改變過渡快慢
+        const transitionSpeed = 0.05;
 
         const backBtn = document.getElementById('back-btn');
         const legendBox = document.getElementById('legend-box');
         const axisLabels = document.getElementById('axis-labels');
+        const infoCard = document.getElementById('info-card');
+        const infoCardTitle = document.getElementById('info-card-title');
+        const infoCardContent = document.getElementById('info-card-content');
+        
+        // 圖片 DOM
+        const infoCardImg = document.getElementById('info-card-img');
+        const ttImg = document.getElementById('tt-img');
 
         function enter4DMode(baseMesh) {
             is4DMode = true;
@@ -342,26 +464,32 @@
             legendBox.style.opacity = '0';
             axisLabels.style.opacity = '0';
 
+            infoCardTitle.innerHTML = `[ ${baseMesh.userData.baseName} ]`;
+            let cleanDesc = baseMesh.userData.desc.replace(/<span class="w-hint"[\s\S]*?<\/span>/g, '');
+            infoCardContent.innerHTML = cleanDesc;
+            
+            // 載入右側大卡片的立繪圖片
+            infoCardImg.onerror = function() { this.onerror = null; this.src = window.fallbackSVG; };
+            infoCardImg.src = baseMesh.userData.imageFilename;
+            
+            infoCard.classList.add('active'); 
+
             active4DGroup = new THREE.Group();
             active4DGroup.position.copy(baseMesh.position); 
             scene.add(active4DGroup);
 
-            const dir = new THREE.Vector3(1, 0.5, 1).normalize();
+            const dir = new THREE.Vector3(-1, 0.3, 0.5).normalize();
             const wSpacing = 4; 
             
-            // 4D 光軸 (深色虛線感)
-            const tubeGeo = new THREE.CylinderGeometry(0.03, 0.03, wSpacing * 2, 8);
-            tubeGeo.translate(0, wSpacing, 0); 
-            const tubeMat = new THREE.MeshBasicMaterial({ color: NIER_DARK, transparent: true, opacity: 0.6 });
-            const tube = new THREE.Mesh(tubeGeo, tubeMat);
-            
-            const quaternion = new THREE.Quaternion();
-            quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-            tube.setRotationFromQuaternion(quaternion);
-            tube.position.copy(dir.clone().multiplyScalar(-wSpacing));
-            active4DGroup.add(tube);
+            const points = [
+                new THREE.Vector3(0, 0, 0),
+                dir.clone().multiplyScalar(wSpacing * 3)
+            ];
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+            const lineMat = new THREE.LineBasicMaterial({ color: NIER_DARK, transparent: true, opacity: 0.6 });
+            const wAxisLine = new THREE.Line(lineGeo, lineMat);
+            active4DGroup.add(wAxisLine);
 
-            // 4D 節點
             const octaGeo = new THREE.OctahedronGeometry(0.8, 0);
             active4DNodes = [];
 
@@ -369,23 +497,27 @@
                 const pos = dir.clone().multiplyScalar(w.id * wSpacing);
                 
                 const wMat = new THREE.MeshStandardMaterial({
-                    color: NIER_LIGHT,
-                    metalness: 0.0,
-                    roughness: 1.0,
-                    transparent: true,
-                    opacity: 1.0
+                    color: NIER_LIGHT, metalness: 0.0, roughness: 1.0, transparent: true, opacity: 1.0
                 });
                 
                 const wNode = new THREE.Mesh(octaGeo, wMat);
                 wNode.position.copy(pos);
                 
+                const dataKey4D = `${w.name}且${baseMesh.userData.baseName}`;
+                const customDesc4D = characterDB[dataKey4D] || "???";
+
+                // 【核心邏輯】4D 節點的精確檔名
+                // 組裝檔名公式: [W][Z][X][Y].webp
+                const imageFilename4D = `${w.name}${baseMesh.userData.zName}${baseMesh.userData.xName}${baseMesh.userData.yName}.webp`;
+
                 wNode.userData = {
-                    name: `[W_AXIS: ${w.name}]<br>→ ${baseMesh.userData.baseName}`,
-                    desc: `<div style="font-family:'Courier New'; font-size:12px; border-bottom:1px solid #44423a; margin-bottom:4px; padding-bottom:2px;">[LOGIC DATA]</div>${w.descMod}`,
-                    originalScale: 1.0,
-                    originalColor: NIER_LIGHT,
-                    hoverColor: 0xffffff, 
-                    is4DNode: true
+                    name: dataKey4D, 
+                    desc: `
+                        <div style="font-family:'Courier New'; font-size:12px; border-bottom:1px solid #44423a; margin-bottom:4px; padding-bottom:2px;">[ DATA_KEY: ${dataKey4D} ]</div>
+                        <div style="line-height: 1.5; margin-top: 6px;">${customDesc4D}</div>
+                    `,
+                    imageFilename: imageFilename4D,
+                    originalScale: 1.0, originalColor: NIER_LIGHT, hoverColor: 0xffffff, is4DNode: true
                 };
                 
                 active4DGroup.add(wNode);
@@ -394,25 +526,16 @@
 
             active4DGroup.scale.set(0.001, 0.001, 0.001);
 
-            // -- 設定相機平滑過渡目標 --
             isCameraTransitioning = true;
             transitionProgress = 0;
-            
-            // 記錄起始狀態
             cameraTargetStart.copy(controls.target);
             cameraPosStart.copy(camera.position);
-
-            // 設定結束狀態 (焦點看向點擊的球)
             cameraTargetEnd.copy(baseMesh.position);
             
-            // 讓相機稍微靠近一點，營造聚焦感 (這裡計算一個新位置)
-            // 取從中心到相機的方向向量
             const camDir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
-            // 距離設為原來的一半左右，或是固定距離
             const focusDistance = 15; 
             cameraPosEnd.copy(baseMesh.position).add(camDir.multiplyScalar(focusDistance));
             
-            // 停用 controls 的阻尼效果，避免跟我們的動畫衝突
             controls.enableDamping = false;
         }
 
@@ -424,6 +547,7 @@
             backBtn.classList.add('opacity-0', 'pointer-events-none');
             legendBox.style.opacity = '1';
             axisLabels.style.opacity = '1';
+            infoCard.classList.remove('active'); 
 
             if (active4DGroup) {
                 scene.remove(active4DGroup);
@@ -431,55 +555,57 @@
                 active4DNodes = [];
             }
             
-            // -- 設定相機平滑過渡目標 (回到預設全景) --
             isCameraTransitioning = true;
             transitionProgress = 0;
-            
             cameraTargetStart.copy(controls.target);
             cameraPosStart.copy(camera.position);
+            cameraTargetEnd.set(0, 3, 0);
             
-            cameraTargetEnd.set(0, 3, 0); // 預設中心
-            
-            // 稍微拉遠回到原始視角 (大約 15, 12, 20 的距離感)
             const camDir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
-            const overviewDistance = 28; // 原始距離大約是 28
+            const overviewDistance = 28; 
             cameraPosEnd.copy(new THREE.Vector3(0,3,0)).add(camDir.multiplyScalar(overviewDistance));
 
-            // 如果原本高度太低，稍微抬高一點
             if(cameraPosEnd.y < 5) cameraPosEnd.y = 12;
 
             controls.enableDamping = false;
-            
-            if (hoveredMesh) {
-                tooltip.style.opacity = 0;
-                hoveredMesh = null;
-            }
         }
 
         backBtn.addEventListener('click', exit4DMode);
 
-        // ==========================================
-        // 8. 互動邏輯 (Raycaster)
-        // ==========================================
+        window.addEventListener('keydown', (event) => {
+            if (event.code === 'Space' && is4DMode && !isCameraTransitioning) {
+                exit4DMode();
+            }
+        });
+
         const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
+        const mouse = new THREE.Vector2(-999, -999); 
         const tooltip = document.getElementById('tooltip');
         const ttTitle = document.getElementById('tt-title');
         const ttDesc = document.getElementById('tt-desc');
-        let hoveredMesh = null;
+        const targetBracket = document.getElementById('target-bracket');
+        
+        let autoFocusedMesh = null;
+        const tempProjVec = new THREE.Vector3();
 
         window.addEventListener('mousemove', (event) => {
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            tooltip.style.left = event.clientX + 'px';
-            tooltip.style.top = event.clientY + 'px';
         });
 
         window.addEventListener('click', (event) => {
             if(event.target.closest('#back-btn')) return;
-            // 確保在過渡動畫中不能點擊新的球
-            if (!is4DMode && hoveredMesh && !isCameraTransitioning) {
-                enter4DMode(hoveredMesh);
+            
+            raycaster.setFromCamera(mouse, camera);
+            
+            const intersectTargets = is4DMode ? [...active4DNodes, activeCenterMesh] : nodeMeshes;
+            const intersects = raycaster.intersectObjects(intersectTargets);
+
+            if (intersects.length > 0) {
+                const clickedMesh = intersects[0].object;
+                if (!is4DMode && !isCameraTransitioning) {
+                    enter4DMode(clickedMesh);
+                }
             }
         });
 
@@ -489,45 +615,120 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // ==========================================
-        // 9. 動畫循環
-        // ==========================================
         function animate() {
             requestAnimationFrame(animate);
 
-            // 處理相機平滑過渡
             if (isCameraTransitioning) {
                 transitionProgress += transitionSpeed;
-                
-                // 使用 smoothstep 讓動畫有 ease-in-out 的感覺
                 const t = Math.min(1.0, transitionProgress);
                 const easeT = t * t * (3 - 2 * t);
-
                 controls.target.lerpVectors(cameraTargetStart, cameraTargetEnd, easeT);
                 camera.position.lerpVectors(cameraPosStart, cameraPosEnd, easeT);
-
                 if (transitionProgress >= 1.0) {
                     isCameraTransitioning = false;
-                    controls.enableDamping = true; // 恢復阻尼
+                    controls.enableDamping = true; 
                 }
             }
-            controls.update(); // 必須放在 lerp 之後
+            controls.update();
 
-            // 處理透明度動畫 (利用 opacity 融入背景色)
-            currentGridOpacity += (targetGridOpacity - currentGridOpacity) * 0.1;
-            
+            if (!isCameraTransitioning) {
+                let currentHover = null;
+                const targets = is4DMode ? [...active4DNodes, activeCenterMesh] : nodeMeshes;
+                
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(targets);
+
+                if (intersects.length > 0) {
+                    currentHover = intersects[0].object;
+                }
+
+                if (autoFocusedMesh !== currentHover) {
+                    if (autoFocusedMesh) {
+                        autoFocusedMesh.scale.setScalar(autoFocusedMesh.userData.originalScale);
+                    }
+                    
+                    autoFocusedMesh = currentHover;
+                    
+                    if (autoFocusedMesh) {
+                        autoFocusedMesh.scale.setScalar(autoFocusedMesh.userData.originalScale * 1.3);
+                        
+                        ttTitle.innerHTML = autoFocusedMesh.userData.name;
+                        ttDesc.innerHTML = autoFocusedMesh.userData.desc;
+                        
+                        // 載入小卡片的頭像圖片
+                        ttImg.onerror = function() { this.onerror = null; this.src = window.fallbackSVG; };
+                        ttImg.src = autoFocusedMesh.userData.imageFilename;
+                        
+                        const ttImgContainer = document.getElementById('tt-img-container');
+
+                        if (autoFocusedMesh.userData.is4DNode) {
+                            ttTitle.style.backgroundColor = '#e8e5d5';
+                            ttTitle.style.color = '#44423a';
+                            // 4D 節點：最終定案，霸氣放大立繪！
+                            ttImgContainer.className = "w-40 h-40 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden transition-all duration-200";
+                        } else {
+                            ttTitle.style.backgroundColor = '#44423a';
+                            ttTitle.style.color = '#dad7c5';
+                            // 3D 節點：一般小頭像
+                            ttImgContainer.className = "w-16 h-16 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden transition-all duration-200";
+                        }
+                    }
+                }
+
+                if (autoFocusedMesh) {
+                    autoFocusedMesh.getWorldPosition(tempProjVec);
+                    tempProjVec.project(camera);
+                    
+                    const x = (tempProjVec.x * 0.5 + 0.5) * window.innerWidth;
+                    const y = (tempProjVec.y * -0.5 + 0.5) * window.innerHeight;
+
+                    targetBracket.style.left = x + 'px';
+                    targetBracket.style.top = y + 'px';
+                    targetBracket.style.opacity = 1;
+
+                    tooltip.style.left = x + 'px';
+                    tooltip.style.top = y + 'px';
+                    tooltip.style.opacity = 1;
+                } else {
+                    targetBracket.style.opacity = 0;
+                    tooltip.style.opacity = 0;
+                }
+            } else {
+                targetBracket.style.opacity = 0;
+                tooltip.style.opacity = 0;
+            }
+
+            if (is4DMode) {
+                targetGridOpacity = 0.15;
+            } else if (autoFocusedMesh && !isCameraTransitioning) {
+                targetGridOpacity = 0.25; 
+            } else {
+                targetGridOpacity = 1.0;
+            }
+
+            currentGridOpacity += (targetGridOpacity - currentGridOpacity) * 0.15;
+
             nodeMeshes.forEach(mesh => {
-                if (mesh !== activeCenterMesh) {
-                    mesh.material.opacity = currentGridOpacity;
-                } else if (is4DMode) {
-                    mesh.material.opacity = 1.0;
-                    mesh.material.color.setHex(NIER_DARK); // 中心點保持深色高對比
+                if (is4DMode) {
+                    if (mesh === activeCenterMesh) {
+                        mesh.material.opacity = 1.0;
+                        mesh.material.color.setHex(NIER_DARK); 
+                    } else {
+                        mesh.material.opacity = currentGridOpacity;
+                        mesh.material.color.setHex(mesh.userData.originalColor);
+                    }
+                } else {
+                    if (mesh === autoFocusedMesh) {
+                        mesh.material.opacity = 1.0;
+                        mesh.material.color.setHex(mesh.userData.hoverColor);
+                    } else {
+                        mesh.material.opacity = currentGridOpacity;
+                        mesh.material.color.setHex(mesh.userData.originalColor);
+                    }
                 }
             });
-            
-            gridLines.forEach(line => {
-                line.material.opacity = currentGridOpacity * 0.4;
-            });
+
+            gridLines.forEach(line => { line.material.opacity = currentGridOpacity * 0.4; });
             axesHelper.material.opacity = currentGridOpacity;
             axesHelper.transparent = true;
 
@@ -536,59 +737,15 @@
                 active4DNodes.forEach(node => {
                     node.rotation.y += 0.01;
                     node.rotation.z += 0.005;
-                });
-            }
-
-            // 在相機移動時，暫停射線檢測，避免 tooltip 亂閃
-            if (!isCameraTransitioning) {
-                raycaster.setFromCamera(mouse, camera);
-                const intersectTargets = is4DMode ? [...active4DNodes, activeCenterMesh] : nodeMeshes;
-                const intersects = raycaster.intersectObjects(intersectTargets);
-
-                if (intersects.length > 0) {
-                    const object = intersects[0].object;
                     
-                    if (hoveredMesh !== object) {
-                        if (hoveredMesh) {
-                            hoveredMesh.scale.setScalar(hoveredMesh.userData.originalScale);
-                            if (!is4DMode || hoveredMesh.userData.is4DNode) {
-                                hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
-                            }
-                        }
-                        
-                        hoveredMesh = object;
-                        hoveredMesh.scale.setScalar(hoveredMesh.userData.originalScale * 1.3); // 縮放幅度小一點比較符合冷靜的UI
-                        hoveredMesh.material.color.setHex(hoveredMesh.userData.hoverColor);
-                        
-                        ttTitle.innerHTML = hoveredMesh.userData.name;
-                        ttDesc.innerHTML = hoveredMesh.userData.desc;
-                        tooltip.style.opacity = 1;
-                        
-                        // 特殊處理 4D 節點的 tooltip 樣式反轉
-                        if (hoveredMesh.userData.is4DNode) {
-                            ttTitle.style.backgroundColor = '#e8e5d5';
-                            ttTitle.style.color = '#44423a';
-                        } else {
-                            ttTitle.style.backgroundColor = '#44423a';
-                            ttTitle.style.color = '#dad7c5';
-                        }
+                    if (node === autoFocusedMesh) {
+                        node.material.color.setHex(node.userData.hoverColor);
+                        node.material.opacity = 1.0;
+                    } else {
+                        node.material.color.setHex(node.userData.originalColor);
+                        node.material.opacity = 0.8;
                     }
-                } else {
-                    if (hoveredMesh) {
-                        hoveredMesh.scale.setScalar(hoveredMesh.userData.originalScale);
-                        if (!is4DMode || hoveredMesh.userData.is4DNode) {
-                            hoveredMesh.material.color.setHex(hoveredMesh.userData.originalColor);
-                        } else if (hoveredMesh === activeCenterMesh && is4DMode) {
-                            hoveredMesh.material.color.setHex(NIER_DARK); 
-                        }
-                        
-                        hoveredMesh = null;
-                        tooltip.style.opacity = 0;
-                    }
-                }
-            } else {
-                // 如果正在移動，隱藏 tooltip
-                tooltip.style.opacity = 0;
+                });
             }
 
             renderer.render(scene, camera);
