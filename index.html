@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>4D 角色屬性矩陣 - YoRHa OS</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
     <style>
         /* NieR: Automata Color Palette & Styling */
         :root {
@@ -72,7 +73,7 @@
             border-left: none;
         }
 
-        /* 左側動態資料卡 (含頭像) */
+        /* 左側動態資料卡 (含頭像) - 移除寫死的 Transform 讓 JS 動態控制 */
         #tooltip {
             position: absolute;
             background: var(--nier-bg);
@@ -81,24 +82,37 @@
             font-size: 14px;
             pointer-events: none;
             opacity: 0;
-            transition: opacity 0.2s;
-            transform: translate(calc(-100% - 45px), -50%); 
+            transition: opacity 0.2s; 
             z-index: 100;
             box-shadow: 4px 4px 0px rgba(68, 66, 58, 0.2);
             padding: 0;
             width: max-content;
-            max-width: 350px; /* 限制寬度讓文字可以折行 */
+            max-width: 350px;
         }
 
-        #tooltip::before {
-            content: '';
-            position: absolute;
-            right: -47px; 
-            top: 50%;
-            width: 45px;
-            height: 2px;
-            background-color: var(--nier-dark);
-            transform: translateY(-50%);
+        /* 智慧定位狀態 Class (由 JS 動態切換) */
+        #tooltip.pos-left { transform: translate(calc(-100% - 45px), -50%); }
+        #tooltip.pos-left::before {
+            content: ''; position: absolute; right: -47px; top: 50%;
+            width: 45px; height: 2px; background-color: var(--nier-dark); transform: translateY(-50%);
+        }
+
+        #tooltip.pos-right { transform: translate(45px, -50%); }
+        #tooltip.pos-right::before {
+            content: ''; position: absolute; left: -47px; top: 50%;
+            width: 45px; height: 2px; background-color: var(--nier-dark); transform: translateY(-50%);
+        }
+
+        #tooltip.pos-top { transform: translate(-50%, calc(-100% - 45px)); }
+        #tooltip.pos-top::before {
+            content: ''; position: absolute; left: 50%; bottom: -47px;
+            width: 2px; height: 45px; background-color: var(--nier-dark); transform: translateX(-50%);
+        }
+
+        #tooltip.pos-bottom { transform: translate(-50%, 45px); }
+        #tooltip.pos-bottom::before {
+            content: ''; position: absolute; left: 50%; top: -47px;
+            width: 2px; height: 45px; background-color: var(--nier-dark); transform: translateX(-50%);
         }
 
         .tooltip-header {
@@ -290,11 +304,11 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         // ==========================================
-        // 📖 吉祥島 / YoRHa 專屬角色資料庫 (結構升級)
+        // 📖 吉祥島 / YoRHa 專屬角色資料庫
         // ==========================================
         const characterDB = {
             // ------------------------------------------
-            // 【BASE】基礎 3D 節點 (共 27 種 - Z的XY)
+            // 【BASE】基礎 3D 節點 (共 27 種)
             // ------------------------------------------
             "守序的元氣少女": { title: "新手冒險者", desc: "總是充滿活力且循規蹈矩的新手冒險者。" },
             "守序的沉穩少女": { title: "班級委員", desc: "認真乖巧的優等生，做事井井有條。" },
@@ -327,7 +341,7 @@
             "混亂的高冷御姐": { title: "暴君", desc: "無視所有道德倫理的狂人，為了目的可以毀滅一切。" },
 
             // ------------------------------------------
-            // 【4D EXPAND】正義陣營 (W = 正義)
+            // 【4D EXPAND】正義陣營
             // ------------------------------------------
             "正義且守序的元氣少女": { title: "熱血勇者", desc: "典型的熱血勇者，相信愛與友情能戰勝一切。" },
             "正義且守序的沉穩少女": { title: "法學高材生", desc: "認真做筆記的優等生，嚴格遵守每一條校規。" },
@@ -352,44 +366,44 @@
             "正義且混亂的高冷少女": { title: "正義黑客", desc: "蔑視規則的天才黑客，以揭露大企業的黑暗面為樂。" },
             "正義且混亂的元氣少御": { title: "革命先鋒", desc: "激進的革命分子，熱情地煽動群眾推翻暴政。" },
             "正義且混亂的沉穩少御": { title: "復仇鬼", desc: "冷酷的復仇者，用極端的方式清剿罪惡集團。" },
-            "正義且混亂的高冷少御": { title: "除妖師", desc: "隨心所欲的叛逆除妖師，做事全憑直覺且不計後果。" },
+            "正義且混亂的高冷少御": { title: "除妖師", desc: "中立所欲的叛逆除妖師，做事全憑直覺且不計後果。" },
             "正義且混亂的元氣御姐": { title: "異端審問官", desc: "狂熱的異端審問官，笑著將所有『邪惡』淨化殆盡。" },
             "正義且混亂的沉穩御姐": { title: "黑道帝王", desc: "幕後操盤的黑道大姊，用黑吃黑的方式維持地下秩序。" },
             "正義且混亂的高冷御姐": { title: "私刑者", desc: "以暴制暴的獨行俠，認為法律無能而親自降下天罰。" },
 
             // ------------------------------------------
-            // 【4D EXPAND】隨心陣營 (W = 隨心)
+            // 【4D EXPAND】中立陣營
             // ------------------------------------------
-            "隨心且守序的元氣少女": { title: "新手店員", desc: "總是充滿活力且循規蹈矩的新手冒險者。" },
-            "隨心且守序的沉穩少女": { title: "圖書管理員", desc: "循規蹈矩的圖書館員，安靜地整理每一本書。" },
-            "隨心且守序的高冷少女": { title: "研究員", desc: "只看數據的冷漠研究員，嚴格遵守實驗室守則。" },
-            "隨心且守序的元氣少御": { title: "金牌快遞", desc: "按件計酬的開朗快遞員，使命必達且絕不違約。" },
-            "隨心且守序的沉穩少御": { title: "專業保鑣", desc: "拿錢辦事的專業保鑣，只要合約在身就絕對盡責。" },
-            "隨心且守序的高冷少御": { title: "高級事務員", desc: "面無表情的契約公務員，只做份內的事。" },
-            "隨心且守序的元氣御姐": { title: "金牌傭兵", desc: "重視合約的豪放傭兵，拿多少錢辦多少事。" },
-            "隨心且守序的沉穩御姐": { title: "情報販子", desc: "冷靜分析的情報商人，交易講求絕對的公平與誠信。" },
-            "隨心且守序的高冷御姐": { title: "首席執行官", desc: "一絲不苟的執行官，不苟言笑。" },
-            "隨心且不羈的元氣少女": { title: "愛湊熱鬧者", desc: "喜歡到處湊熱鬧的旅行者，哪裡有趣就往哪裡跑。" },
-            "隨心且不羈的沉穩少女": { title: "佛系少女", desc: "隨遇而安的佛系學生，對什麼事都提不起勁但也不排斥。" },
-            "隨心且不羈的高冷少女": { title: "極度宅女", desc: "對什麼都沒興趣的家裡蹲，只想安靜地過自己的日子。" },
-            "隨心且不羈的元氣少御": { title: "元氣居民", desc: "充滿活力的普通市民，最關心今天的晚餐吃什麼。" },
-            "隨心且不羈的沉穩少御": { title: "從容少御", desc: "隨波逐流的旅行者，擁有超越外表的成熟。" },
-            "隨心且不羈的高冷少御": { title: "冷漠觀測者", desc: "獨善其身的冷漠旁觀者，認為別人的事與自己無關。" },
-            "隨心且不羈的元氣御姐": { title: "酒吧老闆", desc: "享受生活的隨性酒館老闆娘，喜歡聽客人講述見聞。" },
-            "隨心且不羈的沉穩御姐": { title: "慵懶占卜師", desc: "看透世事的慵懶占卜師，對未來的變化一笑置之。" },
-            "隨心且不羈的高冷御姐": { title: "高嶺之花", desc: "高高在上的隱世仙人，對凡間的紛擾毫無興趣。" },
-            "隨心且混亂的元氣少女": { title: "搗蛋大王", desc: "唯恐天下不亂的惡作劇大王，把捉弄人當作日常樂趣。" },
-            "隨心且混亂的沉穩少女": { title: "腹黑蘿莉", desc: "喜歡觀察人類崩潰的腹黑蘿莉，總是默默推波助瀾。" },
-            "隨心且混亂的高冷少女": { title: "自我中心派", desc: "不聽任何人指揮的叛逆少女，極度自我中心。" },
-            "隨心且混亂的元氣少御": { title: "極限運動員", desc: "追求刺激的極限運動員，為了追求快感可以無視任何警告。" },
-            "隨心且混亂的沉穩少御": { title: "優雅騙徒", desc: "優雅地製造麻煩的騙子，把騙局當作一門藝術。" },
-            "隨心且混亂的高冷少御": { title: "狂氣藝術家", desc: "行事全憑心情的狂氣藝術家，為了靈感不惜破壞一切。" },
-            "隨心且混亂的元氣御姐": { title: "享樂主義者", desc: "喜怒無常的享樂主義者，所有的行動都只為了取悅自己。" },
-            "隨心且混亂的沉穩御姐": { title: "幕後賭徒", desc: "把世界當作棋盤的神秘賭徒，享受著不可預測的混亂局勢。" },
-            "隨心且混亂的高冷御姐": { title: "瘋狂科學家", desc: "不受任何道德綁架的瘋狂科學家，為了實驗可以無視倫理。" },
+            "中立且守序的元氣少女": { title: "新手店員", desc: "總是充滿活力且循規蹈矩的新手冒險者。" },
+            "中立且守序的沉穩少女": { title: "圖書管理員", desc: "循規蹈矩的圖書館員，安靜地整理每一本書。" },
+            "中立且守序的高冷少女": { title: "研究員", desc: "只看數據的冷漠研究員，嚴格遵守實驗室守則。" },
+            "中立且守序的元氣少御": { title: "金牌快遞", desc: "按件計酬的開朗快遞員，使命必達且絕不違約。" },
+            "中立且守序的沉穩少御": { title: "專業保鑣", desc: "拿錢辦事的專業保鑣，只要合約在身就絕對盡責。" },
+            "中立且守序的高冷少御": { title: "高級事務員", desc: "面無表情的契約公務員，只做份內的事。" },
+            "中立且守序的元氣御姐": { title: "金牌傭兵", desc: "重視合約的豪放傭兵，拿多少錢辦多少事。" },
+            "中立且守序的沉穩御姐": { title: "情報販子", desc: "冷靜分析的情報商人，交易講求絕對的公平與誠信。" },
+            "中立且守序的高冷御姐": { title: "首席執行官", desc: "一絲不苟的執行官，不苟言笑。" },
+            "中立且不羈的元氣少女": { title: "愛湊熱鬧者", desc: "喜歡到處湊熱鬧的旅行者，哪裡有趣就往哪裡跑。" },
+            "中立且不羈的沉穩少女": { title: "佛系少女", desc: "隨遇而安的佛系學生，對什麼事都提不起勁但也不排斥。" },
+            "中立且不羈的高冷少女": { title: "極度宅女", desc: "對什麼都沒興趣的家裡蹲，只想安靜地過自己的日子。" },
+            "中立且不羈的元氣少御": { title: "元氣居民", desc: "充滿活力的普通市民，最關心今天的晚餐吃什麼。" },
+            "中立且不羈的沉穩少御": { title: "從容少御", desc: "隨波逐流的旅行者，擁有超越外表的成熟。" },
+            "中立且不羈的高冷少御": { title: "冷漠觀測者", desc: "獨善其身的冷漠旁觀者，認為別人的事與自己無關。" },
+            "中立且不羈的元氣御姐": { title: "酒吧老闆", desc: "享受生活的隨性酒館老闆娘，喜歡聽客人講述見聞。" },
+            "中立且不羈的沉穩御姐": { title: "慵懶占卜師", desc: "看透世事的慵懶占卜師，對未來的變化一笑置之。" },
+            "中立且不羈的高冷御姐": { title: "高嶺之花", desc: "高高在上的隱世仙人，對凡間的紛擾毫無興趣。" },
+            "中立且混亂的元氣少女": { title: "搗蛋大王", desc: "唯恐天下不亂的惡作劇大王，把捉弄人當作日常樂趣。" },
+            "中立且混亂的沉穩少女": { title: "腹黑蘿莉", desc: "喜歡觀察人類崩潰的腹黑蘿莉，總是默默推波助瀾。" },
+            "中立且混亂的高冷少女": { title: "自我中心派", desc: "不聽任何人指揮的叛逆少女，極度自我中心。" },
+            "中立且混亂的元氣少御": { title: "極限運動員", desc: "追求刺激的極限運動員，為了追求快感可以無視任何警告。" },
+            "中立且混亂的沉穩少御": { title: "優雅騙徒", desc: "優雅地製造麻煩的騙子，把騙局當作一門藝術。" },
+            "中立且混亂的高冷少御": { title: "狂氣藝術家", desc: "行事全憑心情的狂氣藝術家，為了靈感不惜破壞一切。" },
+            "中立且混亂的元氣御姐": { title: "享樂主義者", desc: "喜怒無常的享樂主義者，所有的行動都只為了取悅自己。" },
+            "中立且混亂的沉穩御姐": { title: "幕後賭徒", desc: "把世界當作棋盤的神秘賭徒，享受著不可預測的混亂局勢。" },
+            "中立且混亂的高冷御姐": { title: "瘋狂科學家", desc: "不受任何道德綁架的瘋狂科學家，為了實驗可以無視倫理。" },
 
             // ------------------------------------------
-            // 【4D EXPAND】邪惡陣營 (W = 邪惡)
+            // 【4D EXPAND】邪惡陣營
             // ------------------------------------------
             "邪惡且守序的元氣少女": { title: "笑臉劊子手", desc: "笑瞇瞇地執行死刑的劊子手，對組織的命令絕對服從。" },
             "邪惡且守序的沉穩少女": { title: "毒藥師女僕", desc: "面不改色下毒的冷血女僕，嚴格執行主人的每一項暗殺指令。" },
@@ -397,9 +411,9 @@
             "邪惡且守序的元氣少御": { title: "狂熱幹部", desc: "對邪惡組織絕對忠誠的狂熱幹部，用陽光的態度執行殘酷任務。" },
             "邪惡且守序的沉穩少御": { title: "陰謀秘書", desc: "精心策劃陰謀的冷酷秘書，透過合法漏洞榨乾對手。" },
             "邪惡且守序的高冷少御": { title: "殺人機器", desc: "沒有感情的殺人機器，如同精密齒輪般執行清除任務。" },
-            "邪惡且守序的元氣御姐": { title: "黑心老闆", desc: "用親切笑容壓榨員工的黑心老闆，制定嚴苛的奴隸條款。" },
-            "邪惡且守序的沉穩御姐": { title: "獨裁女王", desc: "制定嚴酷法律的獨裁女王，用高壓統治維持帝國的絕對秩序。" },
-            "邪惡且守序的高冷御姐": { title: "魔王軍統帥", desc: "冷酷無情的魔王軍統帥，戰術精準且毫不留情。" },
+            "邪惡且守序的元氣御姐": { title: "慣老闆", desc: "用親切笑容壓榨員工的黑心老闆，制定嚴苛的奴隸條款。" },
+            "邪惡且守序的沉穩御姐": { title: "獨裁者", desc: "制定嚴酷法律的獨裁女王，用高壓統治維持帝國的絕對秩序。" },
+            "邪惡且守序的高冷御姐": { title: "魔王軍最高統帥", desc: "冷酷無情的魔王軍統帥，戰術精準且毫不留情。" },
             "邪惡且不羈的元氣少女": { title: "病嬌少女", desc: "把殺人當作遊戲的病嬌，為了獨佔喜歡的人可以除掉任何人。" },
             "邪惡且不羈的沉穩少女": { title: "毒婦學妹", desc: "精於算計的惡毒繼妹，為了家產可以毫不猶豫地背叛親人。" },
             "邪惡且不羈的高冷少女": { title: "死靈法師", desc: "對生命毫無敬畏的死靈法師，只把活人當作未來的實驗材料。" },
@@ -408,16 +422,16 @@
             "邪惡且不羈的高冷少御": { title: "見死不救者", desc: "冷眼看人溺水的見死不救者，甚至會為了樂趣踩上一腳。" },
             "邪惡且不羈的元氣御姐": { title: "殘酷盜賊", desc: "喜歡玩弄獵物的殘忍盜賊，享受著被害者絕望的表情。" },
             "邪惡且不羈的沉穩御姐": { title: "吸血鬼", desc: "優雅地吸食人血的吸血鬼貴族，將人類視為低等的食物。" },
-            "邪惡且不羈的高冷御姐": { title: "老巫婆", desc: "為了永保青春不擇手段的女巫，冷漠地奪走他人的生命力。" },
+            "邪惡且不羈的高冷御姐": { title: "女巫", desc: "為了永保青春不擇手段的女巫，冷漠地奪走他人的生命力。" },
             "邪惡且混亂的元氣少女": { title: "爆破狂魔", desc: "炸毀一切只為聽響聲的瘋丫頭，所到之處皆為廢墟。" },
             "邪惡且混亂的沉穩少女": { title: "毀滅觀測者", desc: "她會笑著看你的世界燃燒，純粹為了好玩。" },
-            "邪惡且混亂的高冷少女": { title: "傲慢惡魔", desc: "以折磨人為樂的傲慢惡魔，看著凡人受苦是她唯一的消遣。" },
-            "邪惡且混亂的元氣少御": { title: "瘋狂小丑", desc: "熱衷於製造混亂與恐慌的小丑，用笑聲掩蓋著極度的殘忍。" },
-            "邪惡且混亂的沉穩少御": { title: "殺人藝術家", desc: "冷靜佈下連環致命陷阱的變態殺手，將受害者的恐懼視為藝術品。" },
+            "邪惡且混亂的高冷少女": { title: "小惡魔", desc: "以折磨人為樂的傲慢惡魔，看著凡人受苦是她唯一的消遣。" },
+            "邪惡且混亂的元氣少御": { title: "小丑", desc: "熱衷於製造混亂與恐慌的小丑，用笑聲掩蓋著極度的殘忍。" },
+            "邪惡且混亂的沉穩少御": { title: "殺人狂", desc: "冷靜佈下連環致命陷阱的變態殺手，將受害者的恐懼視為藝術品。" },
             "邪惡且混亂的高冷少御": { title: "虛無領主", desc: "厭惡一切存在，企圖歸零世界的虛無主義者，所過之處生機全無。" },
             "邪惡且混亂的元氣御姐": { title: "嗜血狂戰", desc: "沉醉於破壞與鮮血的狂戰士，在殺戮中尋求極致的愉悅。" },
-            "邪惡且混亂的沉穩御姐": { title: "墮落邪神", desc: "面無表情地引發世界末日的邪神，將毀滅視為理所當然的日常。" },
-            "邪惡且混亂的高冷御姐": { title: "滅世魔神", desc: "毫無理由就降下天災的殘酷魔神，單純因為心情不好就毀滅整個國家。" }
+            "邪惡且混亂的沉穩御姐": { title: "邪神", desc: "面無表情地引發世界末日的邪神，將毀滅視為理所當然的日常。" },
+            "邪惡且混亂的高冷御姐": { title: "惡魔", desc: "毫無理由就降下天災的殘酷魔神，單純因為心情不好就毀滅整個國家。" }
         };
 
         const NIER_BG = 0xdad7c5;
@@ -470,7 +484,7 @@
         ];
         const dimW = [
             { id: 1, name: '正義' },
-            { id: 2, name: '隨心' },
+            { id: 2, name: '中立' },
             { id: 3, name: '邪惡' }
         ];
 
@@ -551,9 +565,84 @@
             }
         }
 
-        const axesHelper = new THREE.AxesHelper(10);
-        axesHelper.setColors(new THREE.Color(NIER_DARK), new THREE.Color(NIER_DARK), new THREE.Color(NIER_DARK));
-        mainGridGroup.add(axesHelper);
+        // ==========================================
+        // 🔥 3D 空間軸線與道路標線系統
+        // ==========================================
+        function createTextTexture(text) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const fontSize = 80;
+            // 使用 Google Font 毛筆書法字體，並設定系統內建楷體為備案
+            const fontStack = `${fontSize}px 'Ma Shan Zheng', 'BiauKai', 'DFKai-SB', 'KaiTi', 'STKaiti', serif`;
+            ctx.font = fontStack;
+            const textWidth = ctx.measureText(text).width;
+            canvas.width = textWidth + 40;
+            canvas.height = fontSize + 40;
+            
+            ctx.font = fontStack;
+            ctx.fillStyle = '#44423a'; // 使用系統主色 NIER_DARK
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.LinearFilter;
+            return { texture, aspect: canvas.width / canvas.height };
+        }
+
+        const axisLabels3D = [];
+        const mainAxisLines = [];
+
+        // 建立平貼於地面的道路標線 (X軸、Z軸用)
+        function createGroundLabel(text, pos, rotZ = 0) {
+            const { texture, aspect } = createTextTexture(text);
+            const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.25, depthWrite: false });
+            const geometry = new THREE.PlaneGeometry(3.5 * aspect, 3.5);
+            const plane = new THREE.Mesh(geometry, material);
+            plane.position.copy(pos);
+            plane.rotation.x = -Math.PI / 2; // 平貼地面
+            plane.rotation.z = rotZ;         // 根據軸向旋轉文字
+            axisLabels3D.push(material);
+            return plane;
+        }
+
+        // 建立永遠面向鏡頭的垂直標籤 (Y軸用)
+        function createVerticalLabel(text, pos) {
+            const { texture, aspect } = createTextTexture(text);
+            const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.25, depthWrite: false });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(3.5 * aspect, 3.5, 1);
+            sprite.position.copy(pos);
+            axisLabels3D.push(material);
+            return sprite;
+        }
+
+        const axisLineMat = new THREE.LineBasicMaterial({ color: NIER_DARK, transparent: true, opacity: 0.4 });
+        
+        // [X 軸] 實體軸線與標線 (元氣 ↔ 高冷)
+        const xLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-6.5, 0, 0), new THREE.Vector3(6.5, 0, 0)]), axisLineMat);
+        mainGridGroup.add(xLine);
+        mainAxisLines.push(xLine);
+
+        // [Z 軸] 實體軸線與標線 (守序 ↔ 混亂)
+        const zLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, -6.5), new THREE.Vector3(0, 0, 6.5)]), axisLineMat);
+        mainGridGroup.add(zLine);
+        mainAxisLines.push(zLine);
+
+        // [Y 軸] 實體軸線與垂直標籤 (少女 ↔ 御姐)
+        const yLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -2.5, 0), new THREE.Vector3(0, 10.5, 0)]), axisLineMat);
+        mainGridGroup.add(yLine);
+        mainAxisLines.push(yLine);
+
+        // 等待字型載入完成後再產生 3D 文字，避免 Canvas 提早繪製導致使用預設字體
+        document.fonts.ready.then(() => {
+            mainGridGroup.add(createGroundLabel('元氣', new THREE.Vector3(-7.5, 0, 0), 0));
+            mainGridGroup.add(createGroundLabel('高冷', new THREE.Vector3(7.5, 0, 0), 0));
+            mainGridGroup.add(createGroundLabel('守序', new THREE.Vector3(0, 0, -7.5), -Math.PI / 2));
+            mainGridGroup.add(createGroundLabel('混亂', new THREE.Vector3(0, 0, 7.5), -Math.PI / 2));
+            mainGridGroup.add(createVerticalLabel('少女', new THREE.Vector3(0, -3.5, 0)));
+            mainGridGroup.add(createVerticalLabel('御姐', new THREE.Vector3(0, 11.5, 0)));
+        });
 
         let is4DMode = false;
         let activeCenterMesh = null;
@@ -726,6 +815,11 @@
         let autoFocusedMesh = null;
         const tempProjVec = new THREE.Vector3();
 
+        // 用來快取 tooltip 尺寸，避免在 requestAnimationFrame 中頻繁強制重繪
+        let cachedTooltipWidth = 250;
+        let cachedTooltipHeight = 100;
+        let currentTooltipPosClass = '';
+
         window.addEventListener('mousemove', (event) => {
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -780,6 +874,7 @@
                     currentHover = intersects[0].object;
                 }
 
+                // 當選中目標切換時更新資料
                 if (autoFocusedMesh !== currentHover) {
                     if (autoFocusedMesh) {
                         autoFocusedMesh.scale.setScalar(autoFocusedMesh.userData.originalScale);
@@ -807,9 +902,16 @@
                             ttTitle.style.color = '#dad7c5';
                             ttImgContainer.className = "w-16 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden transition-all duration-200";
                         }
+
+                        // 強制讀取一次寬高來快取，以防不同卡片大小不一
+                        setTimeout(() => {
+                            cachedTooltipWidth = tooltip.offsetWidth;
+                            cachedTooltipHeight = tooltip.offsetHeight;
+                        }, 0);
                     }
                 }
 
+                // 計算並追蹤目標 2D 螢幕座標
                 if (autoFocusedMesh) {
                     autoFocusedMesh.getWorldPosition(tempProjVec);
                     tempProjVec.project(camera);
@@ -824,6 +926,36 @@
                     tooltip.style.left = x + 'px';
                     tooltip.style.top = y + 'px';
                     tooltip.style.opacity = 1;
+
+                    // =====================================
+                    // 🔥 SMART POSITIONING LOGIC (智慧方向偵測)
+                    // =====================================
+                    const offset = 45; // 連接線的長度預留
+                    const padding = 20; // 視窗安全邊距
+                    
+                    // 如果在 4D 模式，右側 360px 是給 Core Info Card 使用的，需排除
+                    const safeRightBoundary = is4DMode ? (window.innerWidth - 360) : window.innerWidth;
+
+                    let newPosClass = 'pos-right'; // 預設優先朝右
+
+                    // 順序：右側夠放 -> 左側夠放 -> 上方夠放 -> 下方
+                    if (x + offset + cachedTooltipWidth + padding < safeRightBoundary) {
+                        newPosClass = 'pos-right';
+                    } else if (x - offset - cachedTooltipWidth - padding > 0) {
+                        newPosClass = 'pos-left';
+                    } else if (y - offset - cachedTooltipHeight - padding > 0) {
+                        newPosClass = 'pos-top';
+                    } else {
+                        newPosClass = 'pos-bottom';
+                    }
+
+                    // 只有在方向改變時才更新 class，避免不必要的 DOM 寫入
+                    if (currentTooltipPosClass !== newPosClass) {
+                        if (currentTooltipPosClass) tooltip.classList.remove(currentTooltipPosClass);
+                        tooltip.classList.add(newPosClass);
+                        currentTooltipPosClass = newPosClass;
+                    }
+
                 } else {
                     targetBracket.style.opacity = 0;
                     tooltip.style.opacity = 0;
@@ -833,6 +965,7 @@
                 tooltip.style.opacity = 0;
             }
 
+            // 處理畫面透明度過濾效果
             if (is4DMode) {
                 targetGridOpacity = 0.15;
             } else if (autoFocusedMesh && !isCameraTransitioning) {
@@ -864,8 +997,8 @@
             });
 
             gridLines.forEach(line => { line.material.opacity = currentGridOpacity * 0.4; });
-            axesHelper.material.opacity = currentGridOpacity;
-            axesHelper.transparent = true;
+            mainAxisLines.forEach(line => { line.material.opacity = currentGridOpacity * 0.4; });
+            axisLabels3D.forEach(mat => { mat.opacity = currentGridOpacity * 0.25; });
 
             if (is4DMode && active4DGroup) {
                 active4DGroup.scale.lerp(new THREE.Vector3(1, 1, 1), 0.15);
