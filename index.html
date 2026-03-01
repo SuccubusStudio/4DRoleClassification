@@ -243,8 +243,8 @@
     <div id="tooltip">
         <div class="tooltip-header" id="tt-title">NODE_NAME</div>
         <div class="tooltip-body flex gap-3">
-            <!-- 加上 transition 讓大小變化更滑順 -->
-            <div id="tt-img-container" class="w-16 h-16 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden transition-all duration-200">
+            <!-- 加上 transition 讓大小變化更滑順，移除固定的 h-16，加入動態 aspect-ratio -->
+            <div id="tt-img-container" class="w-16 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden transition-all duration-200" style="aspect-ratio: 1 / 1;">
                 <img id="tt-img" src="" class="w-full h-full object-cover" />
                 <div class="img-scanline-overlay"></div>
             </div>
@@ -258,9 +258,9 @@
             » CORE_NODE_DATA
         </div>
         
-        <!-- 大頭貼立繪區塊 (改為縮小的暫存預覽) -->
+        <!-- 大頭貼立繪區塊 (移除固定的 h-20，加入動態 aspect-ratio 與 transition) -->
         <div class="mb-3 flex gap-4 items-center">
-            <div class="w-20 h-20 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden">
+            <div class="w-20 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden transition-all duration-200" style="aspect-ratio: 1 / 1;">
                 <img id="info-card-img" src="" class="w-full h-full object-cover" />
                 <div class="img-scanline-overlay"></div>
             </div>
@@ -376,10 +376,7 @@
                     const dataKey = `${z.name}的${x.name}${y.name}`;
                     const customDesc = characterDB[dataKey] || "???";
 
-                    // 【核心邏輯】3D 模式的隨機 W 軸頭像配置
-                    // 在創建時為這顆球隨機抽一個 W (正義/中立/邪惡)，當作 3D 預覽時的代表頭像
                     const randomW = dimW[Math.floor(Math.random() * dimW.length)].name;
-                    // 組裝檔名公式: [W][Z][X][Y].webp
                     const imageFilename = `${randomW}${z.name}${x.name}${y.name}.webp`;
 
                     const charName = dataKey; 
@@ -395,7 +392,7 @@
                         name: charName, 
                         baseName: charName, 
                         desc: charDesc,
-                        imageFilename: imageFilename, // 儲存專屬檔名
+                        imageFilename: imageFilename, 
                         xName: x.name, 
                         yName: y.name,
                         zName: z.name,
@@ -451,9 +448,21 @@
         const infoCardTitle = document.getElementById('info-card-title');
         const infoCardContent = document.getElementById('info-card-content');
         
-        // 圖片 DOM
+        // --- 圖片自動偵測比例邏輯 ---
         const infoCardImg = document.getElementById('info-card-img');
         const ttImg = document.getElementById('tt-img');
+
+        const autoAdjustRatio = function() {
+            if (this.naturalWidth && this.naturalHeight) {
+                this.parentElement.style.aspectRatio = `${this.naturalWidth} / ${this.naturalHeight}`;
+            } else {
+                this.parentElement.style.aspectRatio = '1 / 1';
+            }
+        };
+
+        // 綁定載入事件以自動調整比例
+        infoCardImg.onload = autoAdjustRatio;
+        ttImg.onload = autoAdjustRatio;
 
         function enter4DMode(baseMesh) {
             is4DMode = true;
@@ -506,8 +515,6 @@
                 const dataKey4D = `${w.name}且${baseMesh.userData.baseName}`;
                 const customDesc4D = characterDB[dataKey4D] || "???";
 
-                // 【核心邏輯】4D 節點的精確檔名
-                // 組裝檔名公式: [W][Z][X][Y].webp
                 const imageFilename4D = `${w.name}${baseMesh.userData.zName}${baseMesh.userData.xName}${baseMesh.userData.yName}.webp`;
 
                 wNode.userData = {
@@ -655,7 +662,6 @@
                         ttTitle.innerHTML = autoFocusedMesh.userData.name;
                         ttDesc.innerHTML = autoFocusedMesh.userData.desc;
                         
-                        // 載入小卡片的頭像圖片
                         ttImg.onerror = function() { this.onerror = null; this.src = window.fallbackSVG; };
                         ttImg.src = autoFocusedMesh.userData.imageFilename;
                         
@@ -664,13 +670,13 @@
                         if (autoFocusedMesh.userData.is4DNode) {
                             ttTitle.style.backgroundColor = '#e8e5d5';
                             ttTitle.style.color = '#44423a';
-                            // 4D 節點：最終定案，霸氣放大立繪！
-                            ttImgContainer.className = "w-40 h-40 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden transition-all duration-200";
+                            // 移除寫死的高度 h-40，保留寬度 w-40，讓 aspect-ratio 自動調整高度
+                            ttImgContainer.className = "w-40 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden transition-all duration-200";
                         } else {
                             ttTitle.style.backgroundColor = '#44423a';
                             ttTitle.style.color = '#dad7c5';
-                            // 3D 節點：一般小頭像
-                            ttImgContainer.className = "w-16 h-16 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden transition-all duration-200";
+                            // 移除寫死的高度 h-16，保留寬度 w-16，讓 aspect-ratio 自動調整高度
+                            ttImgContainer.className = "w-16 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden transition-all duration-200";
                         }
                     }
                 }
