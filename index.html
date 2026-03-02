@@ -73,16 +73,19 @@
             border-left: none;
         }
 
-        /* 左側動態資料卡 (含頭像) - 移除寫死的 Transform 讓 JS 動態控制 */
+        /* 左側固定資料卡 - 改為固定在左側畫面邊緣，搭配滑入動畫 */
         #tooltip {
             position: absolute;
+            left: 40px;
+            top: 50%;
+            transform: translateY(-50%) translateX(-20px);
             background: var(--nier-bg);
             border: 2px solid var(--nier-dark);
             color: var(--nier-dark);
             font-size: 14px;
             pointer-events: none;
             opacity: 0;
-            transition: opacity 0.2s; 
+            transition: opacity 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
             z-index: 100;
             box-shadow: 4px 4px 0px rgba(68, 66, 58, 0.2);
             padding: 0;
@@ -90,29 +93,23 @@
             max-width: 350px;
         }
 
-        /* 智慧定位狀態 Class (由 JS 動態切換) */
-        #tooltip.pos-left { transform: translate(calc(-100% - 45px), -50%); }
-        #tooltip.pos-left::before {
-            content: ''; position: absolute; right: -47px; top: 50%;
-            width: 45px; height: 2px; background-color: var(--nier-dark); transform: translateY(-50%);
+        #tooltip.active {
+            opacity: 1;
+            transform: translateY(-50%) translateX(0);
         }
 
-        #tooltip.pos-right { transform: translate(45px, -50%); }
-        #tooltip.pos-right::before {
-            content: ''; position: absolute; left: -47px; top: 50%;
-            width: 45px; height: 2px; background-color: var(--nier-dark); transform: translateY(-50%);
-        }
-
-        #tooltip.pos-top { transform: translate(-50%, calc(-100% - 45px)); }
-        #tooltip.pos-top::before {
-            content: ''; position: absolute; left: 50%; bottom: -47px;
-            width: 2px; height: 45px; background-color: var(--nier-dark); transform: translateX(-50%);
-        }
-
-        #tooltip.pos-bottom { transform: translate(-50%, 45px); }
-        #tooltip.pos-bottom::before {
-            content: ''; position: absolute; left: 50%; top: -47px;
-            width: 2px; height: 45px; background-color: var(--nier-dark); transform: translateX(-50%);
+        /* 裝飾性節點 */
+        #tooltip::before {
+            content: '';
+            position: absolute;
+            right: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 10px;
+            height: 10px;
+            background-color: var(--nier-bg);
+            border: 2px solid var(--nier-dark);
+            z-index: 2;
         }
 
         .tooltip-header {
@@ -273,9 +270,15 @@
         </button>
     </div>
 
+    <!-- HUD SVG 連線層：負責繪製資料卡與節點之間的動態牽引線 -->
+    <svg id="hud-svg" style="position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 80;">
+        <polyline id="hud-line" points="" fill="none" stroke="#44423a" stroke-width="2" opacity="0" transition="opacity 0.2s" />
+        <circle id="hud-line-dot" cx="0" cy="0" r="3" fill="#44423a" opacity="0" transition="opacity 0.2s" />
+    </svg>
+
     <div id="target-bracket"></div>
 
-    <!-- 左側：自動浮出的追蹤資料卡 (加入頭像) -->
+    <!-- 左側：固定於左側的追蹤資料卡 (含頭像) -->
     <div id="tooltip">
         <div class="tooltip-header" id="tt-title">NODE_NAME</div>
         <div class="tooltip-body flex gap-3">
@@ -832,13 +835,11 @@
         const ttTitle = document.getElementById('tt-title');
         const ttDesc = document.getElementById('tt-desc');
         const targetBracket = document.getElementById('target-bracket');
+        const hudLine = document.getElementById('hud-line');
+        const hudLineDot = document.getElementById('hud-line-dot');
         
         let autoFocusedMesh = null;
         const tempProjVec = new THREE.Vector3();
-
-        let cachedTooltipWidth = 250;
-        let cachedTooltipHeight = 100;
-        let currentTooltipPosClass = '';
 
         // 新增：Demo 與擲骰子模式狀態變數
         let demoMode = false;
@@ -1030,58 +1031,61 @@
                             ttTitle.style.color = '#dad7c5';
                             ttImgContainer.className = "w-16 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden transition-all duration-200";
                         }
-
-                        setTimeout(() => {
-                            cachedTooltipWidth = tooltip.offsetWidth;
-                            cachedTooltipHeight = tooltip.offsetHeight;
-                        }, 0);
                     }
                 }
 
+                // HUD 動態牽引線邏輯
                 if (autoFocusedMesh) {
                     autoFocusedMesh.getWorldPosition(tempProjVec);
                     tempProjVec.project(camera);
                     
-                    const x = (tempProjVec.x * 0.5 + 0.5) * window.innerWidth;
-                    const y = (tempProjVec.y * -0.5 + 0.5) * window.innerHeight;
+                    // 確保目標在相機前方 (z <= 1.0)
+                    if (tempProjVec.z <= 1.0) {
+                        const targetX = (tempProjVec.x * 0.5 + 0.5) * window.innerWidth;
+                        const targetY = (tempProjVec.y * -0.5 + 0.5) * window.innerHeight;
 
-                    targetBracket.style.left = x + 'px';
-                    targetBracket.style.top = y + 'px';
-                    targetBracket.style.opacity = 1;
+                        targetBracket.style.left = targetX + 'px';
+                        targetBracket.style.top = targetY + 'px';
+                        targetBracket.style.opacity = 1;
 
-                    tooltip.style.left = x + 'px';
-                    tooltip.style.top = y + 'px';
-                    tooltip.style.opacity = 1;
+                        tooltip.classList.add('active');
 
-                    const offset = 45; 
-                    const padding = 20; 
-                    const safeRightBoundary = is4DMode ? (window.innerWidth - 360) : window.innerWidth;
+                        // 取得固定資料卡的右側邊緣座標 (做為連線的起點)
+                        const tooltipRect = tooltip.getBoundingClientRect();
+                        // 確保 tooltipRect 已經有正確大小
+                        if (tooltipRect.width > 0) {
+                            const startX = tooltipRect.right + 6; // 加上偽元素的寬度偏移
+                            const startY = tooltipRect.top + tooltipRect.height / 2;
 
-                    let newPosClass = 'pos-right'; 
+                            // 繪製三段式 HUD 折線 (起點 -> 往右延伸一小段 -> 目標節點)
+                            const midX = startX + 40;
+                            const midY = startY;
 
-                    if (x + offset + cachedTooltipWidth + padding < safeRightBoundary) {
-                        newPosClass = 'pos-right';
-                    } else if (x - offset - cachedTooltipWidth - padding > 0) {
-                        newPosClass = 'pos-left';
-                    } else if (y - offset - cachedTooltipHeight - padding > 0) {
-                        newPosClass = 'pos-top';
+                            hudLine.setAttribute('points', `${startX},${startY} ${midX},${midY} ${targetX},${targetY}`);
+                            hudLine.setAttribute('opacity', '0.5');
+
+                            hudLineDot.setAttribute('cx', midX);
+                            hudLineDot.setAttribute('cy', midY);
+                            hudLineDot.setAttribute('opacity', '0.8');
+                        }
                     } else {
-                        newPosClass = 'pos-bottom';
+                        // 目標轉到相機後方時隱藏 HUD
+                        targetBracket.style.opacity = 0;
+                        tooltip.classList.remove('active');
+                        hudLine.setAttribute('opacity', '0');
+                        hudLineDot.setAttribute('opacity', '0');
                     }
-
-                    if (currentTooltipPosClass !== newPosClass) {
-                        if (currentTooltipPosClass) tooltip.classList.remove(currentTooltipPosClass);
-                        tooltip.classList.add(newPosClass);
-                        currentTooltipPosClass = newPosClass;
-                    }
-
                 } else {
                     targetBracket.style.opacity = 0;
-                    tooltip.style.opacity = 0;
+                    tooltip.classList.remove('active');
+                    hudLine.setAttribute('opacity', '0');
+                    hudLineDot.setAttribute('opacity', '0');
                 }
             } else {
                 targetBracket.style.opacity = 0;
-                tooltip.style.opacity = 0;
+                tooltip.classList.remove('active');
+                hudLine.setAttribute('opacity', '0');
+                hudLineDot.setAttribute('opacity', '0');
             }
 
             if (is4DMode) {
