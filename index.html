@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>4D 角色屬性矩陣 - YoRHa OS</title>
+    <title>CREVILAZY Character 4D Martrix</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
     <style>
@@ -240,9 +240,9 @@
     <div id="ui-layer">
         <div>
             <div class="nier-header-line">
-                <h1 class="text-3xl font-bold tracking-widest uppercase">SYSTEM: Character_Matrix</h1>
+                <h1 class="text-3xl font-bold tracking-widest uppercase">CREVILAZY: Character_Matrix</h1>
             </div>
-            <p class="text-sm font-bold tracking-widest mt-2">» MODE: <span style="color: var(--nier-accent);" class="animate-pulse">AUTO_TARGET_STANDBY</span></p>
+            <p class="text-sm font-bold tracking-widest mt-2">» MODE: <span id="mode-text" style="color: var(--nier-accent);" class="animate-pulse">AUTO_TARGET_STANDBY</span></p>
             
             <div class="mt-4 border-2 p-3 text-xs inline-block" style="border-color: var(--nier-dark); background-color: rgba(218, 215, 197, 0.8);" id="legend-box">
                 <div class="font-bold mb-2 uppercase tracking-widest pb-1 border-b" style="border-color: var(--nier-dark);">Y-Axis: Maturity Data</div>
@@ -262,6 +262,16 @@
     <button id="back-btn" class="absolute bottom-10 left-1/2 transform -translate-x-1/2 py-2 px-8 opacity-0 pointer-events-none z-50 flex items-center gap-2 uppercase">
         <span>■ RETURN_TO_3D_GRID [SPACE]</span>
     </button>
+
+    <!-- 調整：將操作面板移至右上方，避開下方按鈕 -->
+    <div id="action-panel" class="absolute top-8 right-8 flex flex-col items-end gap-4 pointer-events-none z-50">
+        <button id="dice-btn" style="font-family: 'Courier New', Courier, monospace;" class="pointer-events-auto py-2 px-6 bg-[var(--nier-bg)] text-[var(--nier-dark)] border-2 border-[var(--nier-dark)] font-bold tracking-widest uppercase transition-all shadow-[4px_4px_0px_rgba(68,66,58,0.2)] hover:bg-[var(--nier-dark)] hover:text-[var(--nier-bg)] hover:-translate-y-1 hover:shadow-[4px_6px_0px_rgba(68,66,58,0.4)] flex items-center justify-center gap-2">
+            <span class="text-lg">🎲</span> RANDOM_NODE
+        </button>
+        <button id="demo-btn" style="font-family: 'Courier New', Courier, monospace;" class="pointer-events-auto py-2 px-6 bg-[var(--nier-bg)] text-[var(--nier-dark)] border-2 border-[var(--nier-dark)] font-bold tracking-widest uppercase transition-all shadow-[4px_4px_0px_rgba(68,66,58,0.2)] hover:bg-[var(--nier-dark)] hover:text-[var(--nier-bg)] hover:-translate-y-1 hover:shadow-[4px_6px_0px_rgba(68,66,58,0.4)] flex items-center justify-center gap-2">
+            <span class="text-lg">▶</span> DEMO_MODE
+        </button>
+    </div>
 
     <div id="target-bracket"></div>
 
@@ -572,7 +582,6 @@
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             const fontSize = 80;
-            // 使用 Google Font 毛筆書法字體，並設定系統內建楷體為備案
             const fontStack = `${fontSize}px 'Ma Shan Zheng', 'BiauKai', 'DFKai-SB', 'KaiTi', 'STKaiti', serif`;
             ctx.font = fontStack;
             const textWidth = ctx.measureText(text).width;
@@ -580,7 +589,7 @@
             canvas.height = fontSize + 40;
             
             ctx.font = fontStack;
-            ctx.fillStyle = '#44423a'; // 使用系統主色 NIER_DARK
+            ctx.fillStyle = '#44423a';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(text, canvas.width / 2, canvas.height / 2);
@@ -593,20 +602,18 @@
         const axisLabels3D = [];
         const mainAxisLines = [];
 
-        // 建立平貼於地面的道路標線 (X軸、Z軸用)
         function createGroundLabel(text, pos, rotZ = 0) {
             const { texture, aspect } = createTextTexture(text);
             const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.25, depthWrite: false });
             const geometry = new THREE.PlaneGeometry(3.5 * aspect, 3.5);
             const plane = new THREE.Mesh(geometry, material);
             plane.position.copy(pos);
-            plane.rotation.x = -Math.PI / 2; // 平貼地面
-            plane.rotation.z = rotZ;         // 根據軸向旋轉文字
+            plane.rotation.x = -Math.PI / 2;
+            plane.rotation.z = rotZ;
             axisLabels3D.push(material);
             return plane;
         }
 
-        // 建立永遠面向鏡頭的垂直標籤 (Y軸用)
         function createVerticalLabel(text, pos) {
             const { texture, aspect } = createTextTexture(text);
             const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.25, depthWrite: false });
@@ -619,22 +626,18 @@
 
         const axisLineMat = new THREE.LineBasicMaterial({ color: NIER_DARK, transparent: true, opacity: 0.4 });
         
-        // [X 軸] 實體軸線與標線 (元氣 ↔ 高冷)
         const xLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-6.5, 0, 0), new THREE.Vector3(6.5, 0, 0)]), axisLineMat);
         mainGridGroup.add(xLine);
         mainAxisLines.push(xLine);
 
-        // [Z 軸] 實體軸線與標線 (守序 ↔ 混亂)
         const zLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, -6.5), new THREE.Vector3(0, 0, 6.5)]), axisLineMat);
         mainGridGroup.add(zLine);
         mainAxisLines.push(zLine);
 
-        // [Y 軸] 實體軸線與垂直標籤 (少女 ↔ 御姐)
         const yLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -2.5, 0), new THREE.Vector3(0, 10.5, 0)]), axisLineMat);
         mainGridGroup.add(yLine);
         mainAxisLines.push(yLine);
 
-        // 等待字型載入完成後再產生 3D 文字，避免 Canvas 提早繪製導致使用預設字體
         document.fonts.ready.then(() => {
             mainGridGroup.add(createGroundLabel('元氣', new THREE.Vector3(-7.5, 0, 0), 0));
             mainGridGroup.add(createGroundLabel('高冷', new THREE.Vector3(7.5, 0, 0), 0));
@@ -680,6 +683,9 @@
         infoCardImg.onload = autoAdjustRatio;
         ttImg.onload = autoAdjustRatio;
 
+        // ==========================================
+        // 🔥 【核心更新】4D 置中穿透展開模式 
+        // ==========================================
         function enter4DMode(baseMesh) {
             is4DMode = true;
             activeCenterMesh = baseMesh;
@@ -691,7 +697,6 @@
 
             infoCardTitle.innerHTML = `[ ${baseMesh.userData.baseName} ]`;
             
-            // 右側側邊欄固定顯示基礎屬性的稱號與內容
             infoCardContent.innerHTML = `
                 <span class="char-title-text">${baseMesh.userData.charTitle}</span>
                 <div style="margin-top:4px;">${baseMesh.userData.cleanDesc}</div>
@@ -706,26 +711,34 @@
             active4DGroup.position.copy(baseMesh.position); 
             scene.add(active4DGroup);
 
-            const dir = new THREE.Vector3(-1, 0.3, 0.5).normalize();
-            const wSpacing = 4; 
+            // 建立一根帶有些微斜度並貫穿中心的實體棍子
+            const dir = new THREE.Vector3(-1, 0.15, 0.4).normalize();
+            const wSpacing = 4.5; 
             
-            const points = [
-                new THREE.Vector3(0, 0, 0),
-                dir.clone().multiplyScalar(wSpacing * 3)
-            ];
-            const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
-            const lineMat = new THREE.LineBasicMaterial({ color: NIER_DARK, transparent: true, opacity: 0.6 });
-            const wAxisLine = new THREE.Line(lineGeo, lineMat);
-            active4DGroup.add(wAxisLine);
+            // 讓線段稍微穿透末端節點 (增加 1.5 長度)
+            const stickLength = wSpacing * 2 + 1.5; 
+            const stickGeo = new THREE.CylinderGeometry(0.04, 0.04, stickLength, 8);
+            const stickMat = new THREE.MeshBasicMaterial({ color: NIER_DARK, transparent: true, opacity: 0.6 });
+            const wAxisStick = new THREE.Mesh(stickGeo, stickMat);
+            
+            // 將圓柱體對齊 dir 向量
+            const quaternion = new THREE.Quaternion();
+            quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+            wAxisStick.quaternion.copy(quaternion);
+            
+            active4DGroup.add(wAxisStick);
 
-            const octaGeo = new THREE.OctahedronGeometry(0.8, 0);
+            // 設定八面體的大小，剛好能從中央原有的黑球中「刺出來」形成掃描節點視覺
+            const octaGeo = new THREE.OctahedronGeometry(0.75, 0); 
             active4DNodes = [];
 
             dimW.forEach(w => {
-                const pos = dir.clone().multiplyScalar(w.id * wSpacing);
+                // 將 id(1:正義, 2:中立, 3:邪惡) 映射到 -1, 0, 1，達成置中穿透對稱展開
+                const offsetMultiplier = w.id - 2; 
+                const pos = dir.clone().multiplyScalar(offsetMultiplier * wSpacing);
                 
                 const wMat = new THREE.MeshStandardMaterial({
-                    color: NIER_LIGHT, metalness: 0.0, roughness: 1.0, transparent: true, opacity: 1.0
+                    color: NIER_LIGHT, metalness: 0.1, roughness: 0.8, transparent: true, opacity: 1.0
                 });
                 
                 const wNode = new THREE.Mesh(octaGeo, wMat);
@@ -759,17 +772,21 @@
             cameraPosStart.copy(camera.position);
             cameraTargetEnd.copy(baseMesh.position);
             
+            // 由於線段展開變長（從中心向兩側），稍微拉遠觀看距離確保畫面能塞下
             const camDir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
-            const focusDistance = 15; 
+            const focusDistance = 18; 
             cameraPosEnd.copy(baseMesh.position).add(camDir.multiplyScalar(focusDistance));
             
             controls.enableDamping = false;
         }
 
+        let isAutoSpinning = false; // 新增：控制攝影機微幅旋轉的狀態
+
         function exit4DMode() {
             is4DMode = false;
             activeCenterMesh = null;
             targetGridOpacity = 1.0;
+            isAutoSpinning = false; // 退出時停止旋轉
             
             backBtn.classList.add('opacity-0', 'pointer-events-none');
             legendBox.style.opacity = '1';
@@ -797,10 +814,14 @@
             controls.enableDamping = false;
         }
 
-        backBtn.addEventListener('click', exit4DMode);
+        backBtn.addEventListener('click', () => {
+            if (demoMode) stopDemo();
+            exit4DMode();
+        });
 
         window.addEventListener('keydown', (event) => {
             if (event.code === 'Space' && is4DMode && !isCameraTransitioning) {
+                if (demoMode) stopDemo();
                 exit4DMode();
             }
         });
@@ -815,10 +836,98 @@
         let autoFocusedMesh = null;
         const tempProjVec = new THREE.Vector3();
 
-        // 用來快取 tooltip 尺寸，避免在 requestAnimationFrame 中頻繁強制重繪
         let cachedTooltipWidth = 250;
         let cachedTooltipHeight = 100;
         let currentTooltipPosClass = '';
+
+        // 新增：Demo 與擲骰子模式狀態變數
+        let demoMode = false;
+        let demoStep = 0;
+        let forcedHoverMesh = null;
+        const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+        // 監聽玩家手動拖曳鏡頭，中斷自動旋轉與Demo
+        controls.addEventListener('start', () => {
+            isAutoSpinning = false;
+            if (demoMode) stopDemo();
+        });
+
+        function updateModeText(text, isPulsing = false) {
+            const el = document.getElementById('mode-text');
+            if (!el) return;
+            el.innerHTML = text;
+            if (isPulsing) el.classList.add('animate-pulse');
+            else el.classList.remove('animate-pulse');
+        }
+
+        async function triggerDice() {
+            if (demoMode) stopDemo();
+            
+            updateModeText('CALCULATING_RANDOM_NODE...', true);
+            
+            if (is4DMode) {
+                exit4DMode();
+                await wait(800); // 讓相機退出來一點點，增加飛躍流暢感
+            }
+            
+            const r = nodeMeshes[Math.floor(Math.random() * nodeMeshes.length)];
+            enter4DMode(r);
+            updateModeText('MANUAL_SCAN_READY', true);
+            isAutoSpinning = true; // 骰子選定後開始微幅旋轉
+        }
+
+        function stopDemo() {
+            demoMode = false;
+            forcedHoverMesh = null;
+            isAutoSpinning = false;
+            demoStep++;
+            const btn = document.getElementById('demo-btn');
+            if(btn) btn.innerHTML = '<span class="text-lg">▶</span> DEMO_MODE';
+            updateModeText('AUTO_TARGET_STANDBY', true);
+        }
+
+        function runDemo() {
+            demoMode = true;
+            demoStep++;
+            const currentDemoStep = demoStep;
+            const btn = document.getElementById('demo-btn');
+            if(btn) btn.innerHTML = '<span class="text-lg">■</span> STOP_DEMO';
+            updateModeText('SYSTEM_AUTO_DEMONSTRATION', true);
+            
+            (async () => {
+                while (demoMode && demoStep === currentDemoStep) {
+                    if (is4DMode) {
+                        exit4DMode();
+                        await wait(1200);
+                    }
+                    if (!demoMode || demoStep !== currentDemoStep) break;
+                    
+                    const r = nodeMeshes[Math.floor(Math.random() * nodeMeshes.length)];
+                    enter4DMode(r);
+                    
+                    await wait(800); // 等待鏡頭推進
+                    if (!demoMode || demoStep !== currentDemoStep) break;
+
+                    // 隨機鎖定一個 4D 節點 (正義、中立 或 邪惡)，觸發資訊卡彈出
+                    if (active4DNodes && active4DNodes.length > 0) {
+                        const random4DNode = active4DNodes[Math.floor(Math.random() * active4DNodes.length)];
+                        forcedHoverMesh = random4DNode || null;
+                    }
+                    
+                    isAutoSpinning = true; // Demo閱讀狀態開始微幅旋轉
+                    await wait(6000); // 停留 6 秒供閱讀
+                    
+                    isAutoSpinning = false;
+                    forcedHoverMesh = null;
+                }
+            })();
+        }
+
+        document.getElementById('dice-btn').addEventListener('click', triggerDice);
+        document.getElementById('demo-btn').addEventListener('click', () => {
+            if (demoMode) stopDemo();
+            else runDemo();
+        });
 
         window.addEventListener('mousemove', (event) => {
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -826,7 +935,12 @@
         });
 
         window.addEventListener('click', (event) => {
-            if(event.target.closest('#back-btn')) return;
+            if(event.target.closest('button')) return; // 略過按鈕點擊
+            
+            if (demoMode) {
+                stopDemo(); // 點擊畫面任意處會打斷 Demo 模式交還控制權
+                return; 
+            }
             
             raycaster.setFromCamera(mouse, camera);
             
@@ -861,20 +975,34 @@
                     controls.enableDamping = true; 
                 }
             }
+            
+            // 處理自動微幅旋轉 (Cinematic Slow Pan)
+            controls.autoRotate = isAutoSpinning && !isCameraTransitioning;
+            controls.autoRotateSpeed = 0.6; // 經典的緩慢旋轉速度
             controls.update();
 
             if (!isCameraTransitioning) {
                 let currentHover = null;
                 const targets = is4DMode ? [...active4DNodes, activeCenterMesh] : nodeMeshes;
                 
-                raycaster.setFromCamera(mouse, camera);
-                const intersects = raycaster.intersectObjects(targets);
+                if (forcedHoverMesh) {
+                    // Demo 模式下強制系統 Target 鎖定特定節點
+                    currentHover = forcedHoverMesh;
+                } else {
+                    raycaster.setFromCamera(mouse, camera);
+                    const intersects = raycaster.intersectObjects(targets);
 
-                if (intersects.length > 0) {
-                    currentHover = intersects[0].object;
+                    if (intersects.length > 0) {
+                        currentHover = intersects[0].object;
+                        
+                        // 【修正】在 4D 模式下，如果游標懸停在原本的中心基礎球體上，強制將焦點轉移給同位置的「中立」4D 節點
+                        if (is4DMode && currentHover === activeCenterMesh) {
+                            // active4DNodes 中 Local Position 距離原點最近 (0,0,0) 的就是中立節點
+                            currentHover = active4DNodes.find(node => node.position.lengthSq() < 0.01); 
+                        }
+                    }
                 }
 
-                // 當選中目標切換時更新資料
                 if (autoFocusedMesh !== currentHover) {
                     if (autoFocusedMesh) {
                         autoFocusedMesh.scale.setScalar(autoFocusedMesh.userData.originalScale);
@@ -903,7 +1031,6 @@
                             ttImgContainer.className = "w-16 flex-shrink-0 border-2 border-[var(--nier-dark)] bg-[var(--nier-light)] relative overflow-hidden transition-all duration-200";
                         }
 
-                        // 強制讀取一次寬高來快取，以防不同卡片大小不一
                         setTimeout(() => {
                             cachedTooltipWidth = tooltip.offsetWidth;
                             cachedTooltipHeight = tooltip.offsetHeight;
@@ -911,7 +1038,6 @@
                     }
                 }
 
-                // 計算並追蹤目標 2D 螢幕座標
                 if (autoFocusedMesh) {
                     autoFocusedMesh.getWorldPosition(tempProjVec);
                     tempProjVec.project(camera);
@@ -927,18 +1053,12 @@
                     tooltip.style.top = y + 'px';
                     tooltip.style.opacity = 1;
 
-                    // =====================================
-                    // 🔥 SMART POSITIONING LOGIC (智慧方向偵測)
-                    // =====================================
-                    const offset = 45; // 連接線的長度預留
-                    const padding = 20; // 視窗安全邊距
-                    
-                    // 如果在 4D 模式，右側 360px 是給 Core Info Card 使用的，需排除
+                    const offset = 45; 
+                    const padding = 20; 
                     const safeRightBoundary = is4DMode ? (window.innerWidth - 360) : window.innerWidth;
 
-                    let newPosClass = 'pos-right'; // 預設優先朝右
+                    let newPosClass = 'pos-right'; 
 
-                    // 順序：右側夠放 -> 左側夠放 -> 上方夠放 -> 下方
                     if (x + offset + cachedTooltipWidth + padding < safeRightBoundary) {
                         newPosClass = 'pos-right';
                     } else if (x - offset - cachedTooltipWidth - padding > 0) {
@@ -949,7 +1069,6 @@
                         newPosClass = 'pos-bottom';
                     }
 
-                    // 只有在方向改變時才更新 class，避免不必要的 DOM 寫入
                     if (currentTooltipPosClass !== newPosClass) {
                         if (currentTooltipPosClass) tooltip.classList.remove(currentTooltipPosClass);
                         tooltip.classList.add(newPosClass);
@@ -965,7 +1084,6 @@
                 tooltip.style.opacity = 0;
             }
 
-            // 處理畫面透明度過濾效果
             if (is4DMode) {
                 targetGridOpacity = 0.15;
             } else if (autoFocusedMesh && !isCameraTransitioning) {
@@ -1003,6 +1121,7 @@
             if (is4DMode && active4DGroup) {
                 active4DGroup.scale.lerp(new THREE.Vector3(1, 1, 1), 0.15);
                 active4DNodes.forEach(node => {
+                    // 讓 4D 節點持續自轉，正中央的八面體在球體內部旋轉時會產生強烈的科幻掃描感
                     node.rotation.y += 0.01;
                     node.rotation.z += 0.005;
                     
